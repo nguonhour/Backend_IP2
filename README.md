@@ -25,6 +25,24 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## Docker (Backend Only)
+
+Run these commands from the `backend` folder:
+
+```bash
+docker compose up --build -d
+```
+
+This starts only backend-related containers (backend API + PostgreSQL database).
+
+Stop backend stack:
+
+```bash
+docker compose down
+```
+
+Optional: edit `.env` (or copy from `.env.example`) to override defaults such as DB credentials and API port.
+
 ## Project setup
 
 ```bash
