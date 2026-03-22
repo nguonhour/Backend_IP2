@@ -23,7 +23,7 @@ services:
     container_name: project_ip2_backend
     environment:
       NODE_ENV: production
-      PORT: ${PORT:-3210}
+      PORT: ${PORT:-3211}
       DB_HOST: db
       DB_PORT: 5432
       DB_USERNAME: ${DB_USERNAME:-root}
@@ -34,7 +34,7 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "${PORT:-3210}:3210"
+      - "${PORT:-3211}:3211"
     restart: unless-stopped
 
 volumes:
