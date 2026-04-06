@@ -1,8 +1,31 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
+
+// Master entities
+import { Role } from './entities/master/role.entity';
+import { Skill } from './entities/master/skill.entity';
+import { University } from './entities/master/university.entity';
+import { Major } from './entities/master/major.entity';
+import { Industry } from './entities/master/industry.entity';
+import { JobCategory } from './entities/master/job-category.entity';
+import { JobType } from './entities/master/job-type.entity';
+import { JobStatus } from './entities/master/job-status.entity';
+import { ApplicationStatus } from './entities/master/application-status.entity';
+
+// Modules
+import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
+import { StudentProfilesModule } from './modules/student-profiles/student-profiles.module';
+import { EmployerProfilesModule } from './modules/employer-profiles/employer-profiles.module';
+import { JobsModule } from './modules/jobs/jobs.module';
+import { ApplicationsModule } from './modules/applications/applications.module';
+import { ResumesModule } from './modules/resumes/resumes.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { MasterModule } from './entities/master/master.module';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -17,17 +40,10 @@ function requireEnv(name: string): string {
     }),
     TypeOrmModule.forRootAsync({
       useFactory: (): TypeOrmModuleOptions => {
-        // const dbPort = Number(process.env.DB_PORT ?? 5432);
         const databaseUrl = requireEnv('DATABASE_URL').trim();
 
         return {
           type: 'postgres',
-          // host: process.env.DB_HOST,
-          // port: Number.isNaN(dbPort) ? 5432 : dbPort,
-          // username: process.env.DB_USERNAME,
-          // password: process.env.DB_PASSWORD,
-          // database: process.env.DB_NAME,
-          // entities: [__dirname + '/**/*.entity{.ts,.js}'],
           url: databaseUrl,
           autoLoadEntities: true,
           synchronize: true,
@@ -37,8 +53,18 @@ function requireEnv(name: string): string {
         };
       },
     }),
+    AuthModule,
+    UsersModule,
+    StudentProfilesModule,
+    EmployerProfilesModule,
+    JobsModule,
+    ApplicationsModule,
+    ResumesModule,
+    ReviewsModule,
+    NotificationsModule,
+    ReportsModule,
+    PaymentsModule,
+    MasterModule
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}

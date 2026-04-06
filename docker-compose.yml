@@ -24,6 +24,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: ${PORT:-3211}
+      DATABASE_URL: ${DATABASE_URL}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_KEY: ${SUPABASE_KEY}
       DB_HOST: db
       DB_PORT: 5432
       DB_USERNAME: ${DB_USERNAME:-root}
