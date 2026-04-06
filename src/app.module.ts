@@ -2,17 +2,6 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 
-// Master entities
-import { Role } from './entities/master/role.entity';
-import { Skill } from './entities/master/skill.entity';
-import { University } from './entities/master/university.entity';
-import { Major } from './entities/master/major.entity';
-import { Industry } from './entities/master/industry.entity';
-import { JobCategory } from './entities/master/job-category.entity';
-import { JobType } from './entities/master/job-type.entity';
-import { JobStatus } from './entities/master/job-status.entity';
-import { ApplicationStatus } from './entities/master/application-status.entity';
-
 // Modules
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
