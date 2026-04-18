@@ -17,7 +17,6 @@ import { JobStatus } from '../../entities/master/job-status.entity';
   imports: [
     TypeOrmModule.forFeature([
       Job,
-      JobHistory,
       JobSkill,
       JobView,
       SavedJob,
@@ -26,6 +25,7 @@ import { JobStatus } from '../../entities/master/job-status.entity';
       JobCategory,
       JobType,
       JobStatus,
+      JobHistory,
     ]),
   ],
   controllers: [JobsController],

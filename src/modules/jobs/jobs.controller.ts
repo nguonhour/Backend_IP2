@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Put,
   Delete,
   Body,
@@ -13,6 +14,7 @@ import {
 import { JobsService } from './jobs.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
+import { UpdateJobStatusDto } from './dto/update-job-status.dto';
 import { TestAuthGuard } from '../auth/test-auth.guard';
 
 @Controller('jobs')
@@ -51,6 +53,16 @@ export class JobsController {
     @Body() dto: UpdateJobDto,
   ) {
     return this.jobsService.updateJob(req.user.id, id, dto);
+  }
+
+  @UseGuards(TestAuthGuard)
+  @Patch(':id/status')
+  async updateJobStatus(
+    @Request() req,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateJobStatusDto,
+  ) {
+    return this.jobsService.updateJobStatus(req.user.id, id, dto);
   }
 
   @UseGuards(TestAuthGuard)

@@ -16,9 +16,9 @@ export class CreateJobDto {
   @IsString()
   description: string;
 
-  @IsString()
-  @IsOptional()
-  requirements?: string;
+  // @IsString()
+  // @IsOptional()
+  // requirements?: string;
 
   @IsString()
   @IsOptional()

@@ -12,6 +12,9 @@ export class JobStatus {
   @Column({ default: true })
   isActive: boolean;
 
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt: Date;
+
   @OneToMany(() => Job, (job) => job.status)
   jobs: Job[];
 }
