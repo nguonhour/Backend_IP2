@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -11,6 +12,10 @@ import { StudentProfile } from '../student-profiles/student-profile.entity';
 import { ApplicationStatus } from '../../entities/master/application-status.entity';
 import { CreateApplicationDto } from './dto/create-application.dto';
 import { ApplicationStatusHistory } from './application-status-history.entity';
+import { UpdateApplicationStatusDto } from './dto/update-application-status.dto';
+import { Resume } from '../resumes/resume.entity';
+
+const INITIAL_APPLICATION_STATUS_NAMES = ['pending', 'applied'];
 
 @Injectable()
 export class ApplicationsService {
@@ -25,6 +30,8 @@ export class ApplicationsService {
     private applicationStatusRepository: Repository<ApplicationStatus>,
     @InjectRepository(ApplicationStatusHistory)
     private applicationStatusHistoryRepository: Repository<ApplicationStatusHistory>,
+    @InjectRepository(Resume)
+    private resumeRepository: Repository<Resume>,
   ) {}
 
   async applyToJob(userId: string, dto: CreateApplicationDto) {
@@ -43,17 +50,34 @@ export class ApplicationsService {
     }
 
     // Get job
-    const job = await this.jobRepository.findOne({ where: { id: dto.jobId } });
+    const job = await this.jobRepository.findOne({
+      where: { id: dto.jobId },
+      relations: ['status'],
+    });
     if (!job) {
       throw new NotFoundException('Job not found');
     }
+    this.ensureJobIsOpenForApplications(job);
 
-    // Get "Applied" status
-    const appliedStatus = await this.applicationStatusRepository
+    const resume = dto.resumeId
+      ? await this.getResumeOwnedByUser(dto.resumeId, userId)
+      : await this.getDefaultResumeForUser(userId);
+
+    // Get initial application status
+    const initialStatus = await this.applicationStatusRepository
       .createQueryBuilder('status')
-      .where('LOWER(status.name) = LOWER(:name)', { name: 'Applied' })
+      .where('LOWER(status.name) IN (:...names)', {
+        names: INITIAL_APPLICATION_STATUS_NAMES,
+      })
+      .orderBy(
+        `CASE
+          WHEN LOWER(status.name) = 'pending' THEN 0
+          WHEN LOWER(status.name) = 'applied' THEN 1
+          ELSE 2
+        END`,
+      )
       .getOne();
-    if (!appliedStatus) {
+    if (!initialStatus) {
       throw new NotFoundException('Application status not found');
     }
 
@@ -61,7 +85,8 @@ export class ApplicationsService {
     const application = this.applicationRepository.create({
       job: { id: job.id },
       student: { id: student.id },
-      currentStatus: { id: appliedStatus.id },
+      resume: resume ? { id: resume.id } : undefined,
+      currentStatus: { id: initialStatus.id },
     });
 
     const savedApplication = await this.applicationRepository.save(application);
@@ -69,7 +94,7 @@ export class ApplicationsService {
     await this.applicationStatusHistoryRepository.save(
       this.applicationStatusHistoryRepository.create({
         application: { id: savedApplication.id },
-        statusId: appliedStatus.id,
+        statusId: initialStatus.id,
         changedBy: userId,
       }),
     );
@@ -84,6 +109,7 @@ export class ApplicationsService {
       .createQueryBuilder('application')
       .innerJoinAndSelect('application.job', 'job')
       .innerJoinAndSelect('application.currentStatus', 'status')
+      .leftJoinAndSelect('application.resume', 'resume')
       .innerJoin('application.student', 'studentProfile')
       .where('studentProfile.id = :studentId', { studentId: student.id });
 
@@ -102,6 +128,9 @@ export class ApplicationsService {
       .innerJoinAndSelect('application.job', 'job')
       .innerJoinAndSelect('application.currentStatus', 'status')
       .innerJoinAndSelect('application.student', 'student')
+      .leftJoinAndSelect('student.user', 'studentUser')
+      .leftJoinAndSelect('student.university', 'university')
+      .leftJoinAndSelect('student.major', 'major')
       .leftJoinAndSelect('application.resume', 'resume')
       .innerJoin('application.student', 'studentProfile')
       .where('studentProfile.id = :studentId', { studentId: student.id })
@@ -115,6 +144,108 @@ export class ApplicationsService {
     return application;
   }
 
+  async getEmployerInbox(
+    userId: string,
+    filters: { jobId?: string; status?: string },
+  ) {
+    const query = this.applicationRepository
+      .createQueryBuilder('application')
+      .innerJoinAndSelect('application.job', 'job')
+      .innerJoinAndSelect('application.currentStatus', 'status')
+      .innerJoinAndSelect('application.student', 'student')
+      .leftJoinAndSelect('student.user', 'studentUser')
+      .leftJoinAndSelect('student.university', 'university')
+      .leftJoinAndSelect('student.major', 'major')
+      .leftJoinAndSelect('application.resume', 'resume')
+      .innerJoin('job.employer', 'employer')
+      .innerJoin('employer.user', 'employerUser')
+      .where('employerUser.id = :userId', { userId });
+
+    if (filters.jobId) {
+      query.andWhere('job.id = :jobId', { jobId: filters.jobId });
+    }
+
+    if (filters.status) {
+      query.andWhere('LOWER(status.name) = LOWER(:status)', {
+        status: filters.status,
+      });
+    }
+
+    return query.orderBy('application.appliedAt', 'DESC').getMany();
+  }
+
+  async getApplicantsForJob(userId: string, jobId: string, status?: string) {
+    await this.ensureEmployerOwnsJob(jobId, userId);
+
+    return this.getEmployerInbox(userId, { jobId, status });
+  }
+
+  async getEmployerApplicationById(id: string, userId: string) {
+    const application = await this.applicationRepository
+      .createQueryBuilder('application')
+      .innerJoinAndSelect('application.job', 'job')
+      .innerJoinAndSelect('application.currentStatus', 'status')
+      .innerJoinAndSelect('application.student', 'student')
+      .leftJoinAndSelect('student.user', 'studentUser')
+      .leftJoinAndSelect('student.university', 'university')
+      .leftJoinAndSelect('student.major', 'major')
+      .leftJoinAndSelect('application.resume', 'resume')
+      .leftJoinAndSelect('application.statusHistory', 'statusHistory')
+      .innerJoin('job.employer', 'employer')
+      .innerJoin('employer.user', 'employerUser')
+      .where('application.id = :id', { id })
+      .andWhere('employerUser.id = :userId', { userId })
+      .orderBy('statusHistory.changedAt', 'DESC')
+      .getOne();
+
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+
+    return application;
+  }
+
+  async updateApplicationStatus(
+    id: string,
+    userId: string,
+    dto: UpdateApplicationStatusDto,
+  ) {
+    const application = await this.applicationRepository.findOne({
+      where: { id },
+      relations: ['job', 'job.employer', 'job.employer.user', 'currentStatus'],
+    });
+
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+
+    if (application.job.employer.user.id !== userId) {
+      throw new ForbiddenException(
+        'You do not have permission to update this application',
+      );
+    }
+
+    const nextStatus = await this.applicationStatusRepository.findOne({
+      where: { id: dto.statusId },
+    });
+    if (!nextStatus) {
+      throw new NotFoundException('Application status not found');
+    }
+
+    application.currentStatus = { id: dto.statusId } as Application['currentStatus'];
+    await this.applicationRepository.save(application);
+
+    await this.applicationStatusHistoryRepository.save(
+      this.applicationStatusHistoryRepository.create({
+        application: { id: application.id },
+        statusId: nextStatus.id,
+        changedBy: userId,
+      }),
+    );
+
+    return this.getEmployerApplicationById(id, userId);
+  }
+
   private async getStudentProfileByUserId(userId: string) {
     const student = await this.studentProfileRepository.findOne({
       where: { user: { id: userId } },
@@ -126,6 +257,54 @@ export class ApplicationsService {
     }
 
     return student;
+  }
+
+  private async ensureEmployerOwnsJob(jobId: string, userId: string) {
+    const job = await this.jobRepository.findOne({
+      where: { id: jobId },
+      relations: ['employer', 'employer.user'],
+    });
+
+    if (!job) {
+      throw new NotFoundException('Job not found');
+    }
+
+    if (job.employer.user.id !== userId) {
+      throw new ForbiddenException('You do not have permission to view this job');
+    }
+  }
+
+  private ensureJobIsOpenForApplications(job: Job) {
+    const statusName = job.status?.name?.toLowerCase().trim();
+
+    if (!statusName || ['draft', 'closed', 'filled', 'expired', 'paused'].includes(statusName)) {
+      throw new ForbiddenException('This job is not open for applications');
+    }
+
+    if (job.deadline && new Date(job.deadline) < new Date()) {
+      throw new ForbiddenException('This job is no longer accepting applications');
+    }
+  }
+
+  private async getResumeOwnedByUser(resumeId: string, userId: string) {
+    const resume = await this.resumeRepository.findOne({
+      where: { id: resumeId, user: { id: userId } },
+      relations: ['user'],
+    });
+
+    if (!resume) {
+      throw new NotFoundException('Resume not found');
+    }
+
+    return resume;
+  }
+
+  private async getDefaultResumeForUser(userId: string) {
+    return this.resumeRepository.findOne({
+      where: { user: { id: userId }, isDefault: true },
+      relations: ['user'],
+      order: { createdAt: 'DESC' },
+    });
   }
 
 }

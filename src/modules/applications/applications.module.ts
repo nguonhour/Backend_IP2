@@ -7,6 +7,7 @@ import { Application } from './application.entity';
 import { StudentProfile } from '../student-profiles/student-profile.entity';
 import { ApplicationStatus } from '../../entities/master/application-status.entity';
 import { Job } from '../jobs/job.entity';
+import { Resume } from '../resumes/resume.entity';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { Job } from '../jobs/job.entity';
       StudentProfile,
       ApplicationStatus,
       Job,
+      Resume,
     ]),
   ],
   controllers: [ApplicationsController],
