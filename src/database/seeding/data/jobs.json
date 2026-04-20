@@ -1,0 +1,38 @@
+[
+  {
+    "title": "Senior Full Stack Engineer (NestJS/React)",
+    "description": "We are seeking a seasoned Full Stack Engineer to architect and build our core platform. You will be responsible for end-to-end feature delivery.",
+    "requirements": "- 5+ years of TypeScript experience\n- Deep knowledge of NestJS and React\n- Experience with PostgreSQL",
+    "benefits": "- Fully remote work\n- Unlimited PTO\n- Comprehensive health insurance",
+    "imageUrl": "https://example.com/images/tech-job-1.png",
+    "location": "Remote (US Timezones)",
+    "salaryMin": 120000,
+    "salaryMax": 160000,
+    "currency": "USD",
+    "deadline": "2027-12-31T23:59:59Z"
+  },
+  {
+    "title": "Product Marketing Manager",
+    "description": "Join our fast-paced marketing team to drive product launches and go-to-market strategies for our B2B SaaS offerings.",
+    "requirements": "- 3+ years in B2B SaaS marketing\n- Strong copywriting skills\n- Data-driven approach to campaigns",
+    "benefits": "- Hybrid work schedule\n- Annual learning stipend\n- Gym membership",
+    "imageUrl": null,
+    "location": "London, UK",
+    "salaryMin": 65000,
+    "salaryMax": 85000,
+    "currency": "GBP",
+    "deadline": "2027-06-15T00:00:00Z"
+  },
+  {
+    "title": "Junior UI/UX Designer",
+    "description": "An excellent opportunity for a junior designer to grow within a mentorship-driven environment. You will assist in wireframing and prototyping.",
+    "requirements": "- Portfolio demonstrating UI/UX principles\n- Proficiency in Figma\n- Basic understanding of HTML/CSS",
+    "benefits": "- Mentorship program\n- Flexible hours",
+    "imageUrl": "https://example.com/images/design-job.jpg",
+    "location": "Berlin, Germany",
+    "salaryMin": 45000,
+    "salaryMax": 55000,
+    "currency": "EUR",
+    "deadline": "2027-08-01T12:00:00Z"
+  }
+]

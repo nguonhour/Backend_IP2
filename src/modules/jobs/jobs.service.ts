@@ -17,6 +17,8 @@ import { JobHistory } from './job-history.entity';
 
 const PUBLIC_JOB_STATUS_NAMES = ['published', 'active', 'open'];
 const CLOSED_JOB_STATUS_NAMES = ['closed', 'filled', 'expired', 'draft', 'paused'];
+import { JobSearchDto } from './dto/search-job.dto';
+
 
 @Injectable()
 export class JobsService {
@@ -42,9 +44,9 @@ export class JobsService {
       .leftJoinAndSelect('job.jobType', 'jobType')
       .leftJoinAndSelect('job.status', 'status')
       .leftJoinAndSelect('job.employer', 'employer')
-      .where('LOWER(status.name) IN (:...visibleStatuses)', {
-        visibleStatuses: PUBLIC_JOB_STATUS_NAMES,
-      })
+      // .where('LOWER(status.name) IN (:...visibleStatuses)', {
+      //   visibleStatuses: PUBLIC_JOB_STATUS_NAMES,
+      // })
       .andWhere('(job.deadline IS NULL OR job.deadline >= NOW())')
       .orderBy('job.createdAt', 'DESC')
       .getMany();
@@ -258,4 +260,32 @@ export class JobsService {
       }),
     );
   }
+
+    async searchJobs(query: JobSearchDto) {
+        const { keyword, location, type, minSalary } = query;
+        const qb = this.jobRepository
+            .createQueryBuilder('job')
+            .leftJoin('job.jobType', 'jobType');
+
+        if (keyword) {
+            qb.andWhere(
+                '(job.title ILIKE :keyword OR job.description ILIKE :keyword)',
+                { keyword: `%${keyword}%` },
+            );
+        }
+
+        if (location) {
+            qb.andWhere('job.location = :location', { location });
+        }
+
+        if (type) {
+            qb.andWhere('jobType.name = :type', { type });
+        }
+
+        if (minSalary) {
+            qb.andWhere('job.salaryMin >= :minSalary', { minSalary });
+        }
+
+        return await qb.getMany();
+    }
 }
