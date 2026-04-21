@@ -3,6 +3,11 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
+FROM node:22-alpine AS dev
+WORKDIR /app
+COPY --from=dependencies /app/node_modules ./node_modules
+CMD ["npm", "run", "start:dev"]
+
 FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules

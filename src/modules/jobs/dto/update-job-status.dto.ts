@@ -1,6 +1,6 @@
 import { IsUUID } from 'class-validator';
 
-export class UpdateApplicationStatusDto {
+export class UpdateJobStatusDto {
   @IsUUID()
   statusId: string;
 }
