@@ -17,7 +17,6 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { MasterModule } from './entities/master/master.module';
 import { EmployerNotificationModule } from './modules/employer-notification/employer-notification.module';
 
-
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is required`);
@@ -57,7 +56,6 @@ function requireEnv(name: string): string {
     PaymentsModule,
     MasterModule,
     EmployerNotificationModule,
-  
   ],
 })
 export class AppModule {}

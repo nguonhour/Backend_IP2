@@ -16,8 +16,15 @@ import { MasterService } from './master.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      Role, Skill, University, Major, Industry,
-      JobCategory, JobType, JobStatus, ApplicationStatus,
+      Role,
+      Skill,
+      University,
+      Major,
+      Industry,
+      JobCategory,
+      JobType,
+      JobStatus,
+      ApplicationStatus,
     ]),
   ],
   controllers: [MasterController],
