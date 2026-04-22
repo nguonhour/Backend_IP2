@@ -1,4 +1,4 @@
-// notification.module.ts
+ 
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Notification } from './notification.entity';
@@ -10,4 +10,4 @@ import { NotificationController } from './notifications.controller';
   controllers: [NotificationController],
   providers: [NotificationService],
 })
-export class NotificationModule {}
+export class NotificationsModule {}

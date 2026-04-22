@@ -11,6 +11,12 @@ export class NotificationService {
     private repo: Repository<Notification>,
   ) {}
 
+  async findAllByUserId(userId: string): Promise<Notification[]> {
+    return await this.repo.find({
+      where: { user: { id: userId } },
+      order: { createdAt: 'DESC' },
+    });
+  }
   async create(data: CreateNotificationDto): Promise<Notification> {
     const notification = this.repo.create({
       ...data,
