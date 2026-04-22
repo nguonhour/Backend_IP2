@@ -45,4 +45,8 @@ async function bootstrap() {
   }
 }
 
-bootstrap();
+bootstrap().catch((error) => {
+  const logger = new Logger('SeederBootstrap');
+  logger.error('Unexpected error during seeding', error);
+  process.exit(1);
+});
