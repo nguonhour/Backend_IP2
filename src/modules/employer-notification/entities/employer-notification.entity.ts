@@ -1,28 +1,33 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm'
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+} from 'typeorm';
 
 @Entity('notifications')
 export class Notification {
   @PrimaryGeneratedColumn()
-  id!: number
+  id!: number;
 
   @Column()
-  userId!: number
+  userId!: number;
 
   @Column()
-  type!: string
+  type!: string;
 
-  @Column({ nullable: true })
-  title?: string | null
+  @Column({ type: 'varchar', nullable: true })
+  title?: string | null;
 
   @Column()
-  message!: string
+  message!: string;
 
   @Column({ default: false })
-  read!: boolean
+  read!: boolean;
 
-  @Column({ nullable: true })
-  data?: string | null
+  @Column({ type: 'text', nullable: true })
+  data?: string | null;
 
   @CreateDateColumn()
-  createdAt!: Date
+  createdAt!: Date;
 }
