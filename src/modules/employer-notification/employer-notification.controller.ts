@@ -3,7 +3,7 @@ import { Controller, Get, Post, Patch, Delete, Param, Body, Query } from '@nestj
 import { NotificationsService } from './employer-notification.service'
 import { CreateNotificationDto } from './dto/create-employer-notification.dto'
 
-@Controller('notifications')
+@Controller('employer-notifications')
 export class NotificationsController {
   constructor(private service: NotificationsService) {}
 
@@ -16,6 +16,7 @@ export class NotificationsController {
   // POST /notifications
   @Post()
   create(@Body() dto: CreateNotificationDto) {
+    console.log(dto)
     return this.service.create(dto)
   }
 

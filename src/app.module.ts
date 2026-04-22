@@ -15,6 +15,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { ReportsModule } from './modules/reports/reports.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { MasterModule } from './entities/master/master.module';
+import { EmployerNotificationModule } from './modules/employer-notification/employer-notification.module';
 
 
 function requireEnv(name: string): string {
@@ -55,6 +56,7 @@ function requireEnv(name: string): string {
     ReportsModule,
     PaymentsModule,
     MasterModule,
+    EmployerNotificationModule,
   
   ],
 })

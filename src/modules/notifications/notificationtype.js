@@ -27,7 +27,7 @@ export const typeStyles = {
 
   job_reported: {
     icon: ExclamationTriangleIcon,
-    wrapper: 'bg-red-100 text-red-700 ring-1 ring-red-200',
+    wrapper: 'bg-red-100 text-red-500 ring-1 ring-red-200',
     label: 'Job Reported',
     important: true, 
   },
