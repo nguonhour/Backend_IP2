@@ -16,6 +16,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { MasterModule } from './entities/master/master.module';
 
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is required`);
@@ -53,7 +54,8 @@ function requireEnv(name: string): string {
     NotificationsModule,
     ReportsModule,
     PaymentsModule,
-    MasterModule
+    MasterModule,
+  
   ],
 })
 export class AppModule {}
