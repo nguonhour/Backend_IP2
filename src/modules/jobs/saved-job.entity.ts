@@ -1,13 +1,14 @@
 import {
   Entity,
-  Column,
   PrimaryGeneratedColumn,
   ManyToOne,
   JoinColumn,
+  Unique,
 } from 'typeorm';
 import { StudentProfile } from '../student-profiles/student-profile.entity';
 import { Job } from './job.entity';
 
+@Unique('UQ_saved_jobs_student_job', ['student', 'job'])
 @Entity('saved_jobs')
 export class SavedJob {
   @PrimaryGeneratedColumn('uuid')

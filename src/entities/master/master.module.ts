@@ -10,6 +10,8 @@ import { JobCategory } from './job-category.entity';
 import { JobType } from './job-type.entity';
 import { JobStatus } from './job-status.entity';
 import { ApplicationStatus } from './application-status.entity';
+import { MasterController } from './master.controller';
+import { MasterService } from './master.service';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { ApplicationStatus } from './application-status.entity';
       JobCategory, JobType, JobStatus, ApplicationStatus,
     ]),
   ],
+  controllers: [MasterController],
+  providers: [MasterService],
   exports: [TypeOrmModule],
 })
 export class MasterModule {}

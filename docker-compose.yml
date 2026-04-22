@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: ${DB_USERNAME:-root}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-Hnh00900}
     ports:
-      - "${DB_EXPOSE_PORT:-5432}:5432"
+      - "${DB_EXPOSE_PORT:-5431}:5432"
     volumes:
       - backend_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -20,6 +20,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: dev  
     container_name: project_ip2_backend
     environment:
       NODE_ENV: production
@@ -38,6 +39,9 @@ services:
         condition: service_healthy
     ports:
       - "${PORT:-3211}:3211"
+    volumes:
+      - .:/app                          # ← mounts your local code into container
+      - /app/node_modules               # ← prevents local node_modules from overwriting container's
     restart: unless-stopped
 
 volumes:

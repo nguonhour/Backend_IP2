@@ -5,6 +5,7 @@ import {
   ManyToOne,
   OneToMany,
   JoinColumn,
+  Unique,
 } from 'typeorm';
 import { Job } from '../jobs/job.entity';
 import { StudentProfile } from '../student-profiles/student-profile.entity';
@@ -12,6 +13,7 @@ import { Resume } from '../resumes/resume.entity';
 import { ApplicationStatus } from '../../entities/master/application-status.entity';
 import { ApplicationStatusHistory } from './application-status-history.entity';
 
+@Unique('UQ_applications_student_job', ['job', 'student'])
 @Entity('applications')
 export class Application {
   @PrimaryGeneratedColumn('uuid')
