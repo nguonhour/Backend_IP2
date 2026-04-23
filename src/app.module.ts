@@ -36,7 +36,7 @@ function requireEnv(name: string): string {
           type: 'postgres',
           url: databaseUrl,
           autoLoadEntities: true,
-          synchronize: true,
+          synchronize: false,
           ssl: {
             rejectUnauthorized: false,
           },
