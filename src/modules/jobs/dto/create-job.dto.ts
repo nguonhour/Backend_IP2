@@ -16,6 +16,11 @@ export class CreateJobDto {
   @IsString()
   description: string;
 
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  summary?: string;
+
   // @IsString()
   // @IsOptional()
   // requirements?: string;

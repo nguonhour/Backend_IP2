@@ -35,6 +35,9 @@ export class EmployerProfile {
   @Column({ nullable: true })
   contactEmail: string;
 
+  @Column({ nullable: true })
+  avatarUrl: string;
+
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 

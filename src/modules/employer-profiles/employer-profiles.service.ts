@@ -48,6 +48,7 @@ export class EmployerProfilesService {
       companyName: dto.companyName,
       location: dto.location,
       contactEmail: dto.contactEmail,
+      avatarUrl: dto.avatarUrl,
       user: { id: user.id },
       industry: dto.industryId ? ({ id: dto.industryId } as Industry) : undefined,
     });
@@ -97,6 +98,7 @@ export class EmployerProfilesService {
       companyName: dto.companyName ?? profile.companyName,
       location: dto.location ?? profile.location,
       contactEmail: dto.contactEmail ?? profile.contactEmail,
+      avatarUrl: dto.avatarUrl ?? profile.avatarUrl,
       industry: dto.industryId ? ({ id: dto.industryId } as Industry) : profile.industry,
       updatedAt: new Date(),
     });

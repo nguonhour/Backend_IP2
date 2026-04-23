@@ -40,6 +40,9 @@ export class Job {
   @Column({ type: 'text' })
   description: string;
 
+  @Column({ type: 'text', nullable: true })
+  summary: string;
+
   // @Column({ type: 'text', nullable: true })
   // requirements: string;
 

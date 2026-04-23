@@ -127,6 +127,7 @@ export class JobsService {
     Object.assign(job, {
       title: dto.title ?? job.title,
       description: dto.description ?? job.description,
+      summary: dto.summary ?? job.summary,
       // requirements: dto.requirements ?? job.requirements,
       benefits: dto.benefits ?? job.benefits,
       imageUrl: dto.imageUrl ?? job.imageUrl,

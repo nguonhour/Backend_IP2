@@ -18,4 +18,9 @@ export class CreateEmployerProfileDto {
   @IsOptional()
   @MaxLength(255)
   contactEmail?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(1024)
+  avatarUrl?: string;
 }
