@@ -1,27 +1,31 @@
 import {
   Entity,
   Column,
+  CreateDateColumn,
   PrimaryGeneratedColumn,
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { User } from '../users/user.entity';
+import { StudentProfile } from '../student-profiles/student-profile.entity';
 
 @Entity('resumes')
 export class Resume {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => User, (user) => user.resumes)
-  @JoinColumn({ name: 'user_id' })
-  user: User;
+  @ManyToOne(() => StudentProfile, (student) => student.resumes, {
+    nullable: false,
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'student_id' })
+  student: StudentProfile;
 
-  @Column()
+  @Column({ name: 'file_url', type: 'varchar', nullable: false })
   fileUrl: string;
 
-  @Column({ default: false })
+  @Column({ name: 'is_default', type: 'boolean', default: false })
   isDefault: boolean;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
 }

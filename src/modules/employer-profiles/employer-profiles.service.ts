@@ -50,7 +50,9 @@ export class EmployerProfilesService {
       contactEmail: dto.contactEmail,
       avatarUrl: dto.avatarUrl,
       user: { id: user.id },
-      industry: dto.industryId ? ({ id: dto.industryId } as Industry) : undefined,
+      industry: dto.industryId
+        ? ({ id: dto.industryId } as Industry)
+        : undefined,
     });
 
     return this.employerProfileRepository.save(profile);
@@ -99,7 +101,9 @@ export class EmployerProfilesService {
       location: dto.location ?? profile.location,
       contactEmail: dto.contactEmail ?? profile.contactEmail,
       avatarUrl: dto.avatarUrl ?? profile.avatarUrl,
-      industry: dto.industryId ? ({ id: dto.industryId } as Industry) : profile.industry,
+      industry: dto.industryId
+        ? ({ id: dto.industryId } as Industry)
+        : profile.industry,
       updatedAt: new Date(),
     });
 

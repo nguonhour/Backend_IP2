@@ -14,11 +14,9 @@ import { JobCategory } from '../../entities/master/job-category.entity';
 import { JobType } from '../../entities/master/job-type.entity';
 import { JobStatus } from '../../entities/master/job-status.entity';
 import { JobHistory } from './job-history.entity';
-
-const PUBLIC_JOB_STATUS_NAMES = ['published', 'active', 'open'];
-const CLOSED_JOB_STATUS_NAMES = ['closed', 'filled', 'expired', 'draft', 'paused'];
 import { JobSearchDto } from './dto/search-job.dto';
 
+const PUBLIC_JOB_STATUS_NAMES = ['published', 'active', 'open'];
 
 @Injectable()
 export class JobsService {
@@ -51,7 +49,7 @@ export class JobsService {
       .orderBy('job.createdAt', 'DESC')
       .getMany();
 
-    return jobs.map(job => ({
+    return jobs.map((job) => ({
       ...job,
       isExpired: job.deadline ? new Date(job.deadline) < new Date() : false,
     }));
@@ -107,7 +105,7 @@ export class JobsService {
       .orderBy('job.createdAt', 'DESC')
       .getMany();
 
-    return jobs.map(job => ({
+    return jobs.map((job) => ({
       ...job,
       isExpired: job.deadline ? new Date(job.deadline) < new Date() : false,
     }));
@@ -129,8 +127,7 @@ export class JobsService {
     Object.assign(job, {
       title: dto.title ?? job.title,
       description: dto.description ?? job.description,
-      summary: dto.summary ?? job.summary,
-      // requirements: dto.requirements ?? job.requirements,
+      requirements: dto.requirements ?? job.requirements,
       benefits: dto.benefits ?? job.benefits,
       imageUrl: dto.imageUrl ?? job.imageUrl,
       location: dto.location ?? job.location,
@@ -211,7 +208,9 @@ export class JobsService {
 
   private ensureEmployerOwnsJob(job: Job, userId: string) {
     if (job.employer?.user?.id !== userId) {
-      throw new ForbiddenException('You do not have permission to modify this job');
+      throw new ForbiddenException(
+        'You do not have permission to modify this job',
+      );
     }
   }
 
@@ -262,31 +261,31 @@ export class JobsService {
     );
   }
 
-    async searchJobs(query: JobSearchDto) {
-        const { keyword, location, type, minSalary } = query;
-        const qb = this.jobRepository
-            .createQueryBuilder('job')
-            .leftJoin('job.jobType', 'jobType');
+  async searchJobs(query: JobSearchDto) {
+    const { keyword, location, type, minSalary } = query;
+    const qb = this.jobRepository
+      .createQueryBuilder('job')
+      .leftJoin('job.jobType', 'jobType');
 
-        if (keyword) {
-            qb.andWhere(
-                '(job.title ILIKE :keyword OR job.description ILIKE :keyword)',
-                { keyword: `%${keyword}%` },
-            );
-        }
-
-        if (location) {
-            qb.andWhere('job.location = :location', { location });
-        }
-
-        if (type) {
-            qb.andWhere('jobType.name = :type', { type });
-        }
-
-        if (minSalary) {
-            qb.andWhere('job.salaryMin >= :minSalary', { minSalary });
-        }
-
-        return await qb.getMany();
+    if (keyword) {
+      qb.andWhere(
+        '(job.title ILIKE :keyword OR job.description ILIKE :keyword)',
+        { keyword: `%${keyword}%` },
+      );
     }
+
+    if (location) {
+      qb.andWhere('job.location = :location', { location });
+    }
+
+    if (type) {
+      qb.andWhere('jobType.name = :type', { type });
+    }
+
+    if (minSalary) {
+      qb.andWhere('job.salaryMin >= :minSalary', { minSalary });
+    }
+
+    return await qb.getMany();
+  }
 }

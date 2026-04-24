@@ -1,8 +1,6 @@
-import { Type as TransformType } from "class-transformer";
-import { IsEnum, IsNumber, IsOptional, IsString, Min } from "class-validator";
-import { Type } from "../../../entities/master";
-
-
+import { Type as TransformType } from 'class-transformer';
+import { IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { Type } from '../../../entities/master';
 
 export class JobSearchDto {
   @IsOptional()

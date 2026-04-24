@@ -1,7 +1,9 @@
 import {
   Entity,
   Column,
+  CreateDateColumn,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
   ManyToOne,
   OneToMany,
   OneToOne,
@@ -18,30 +20,30 @@ export class EmployerProfile {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @OneToOne(() => User)
+  @OneToOne(() => User, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column()
+  @Column({ name: 'company_name', type: 'varchar', nullable: false })
   companyName: string;
 
   @ManyToOne(() => Industry, { nullable: true })
   @JoinColumn({ name: 'industry_id' })
   industry: Industry;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   location: string;
 
-  @Column({ nullable: true })
+  @Column({ name: 'contact_email', type: 'varchar', nullable: true })
   contactEmail: string;
 
-  @Column({ nullable: true })
-  avatarUrl: string;
+  @Column({ name: 'avatar_url', type: 'varchar', nullable: true })
+  avatarUrl: string | null;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
   updatedAt: Date;
 
   @OneToMany(() => Job, (job) => job.employer)

@@ -5,15 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
-
-// Extend Express Request type to include user property
-declare global {
-  namespace Express {
-    interface Request {
-      user?: { id: string };
-    }
-  }
-}
+import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
 
 /**
  * Mock auth guard for development/testing.
@@ -23,6 +15,7 @@ declare global {
 export class TestAuthGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<Request>();
+    const authRequest = request as AuthenticatedRequest;
 
     // Get user ID from header (for testing)
     const testUserId = request.headers['x-test-user-id'] as string;
@@ -34,7 +27,7 @@ export class TestAuthGuard implements CanActivate {
     }
 
     // Mock user object
-    request.user = { id: testUserId };
+    authRequest.user = { id: testUserId };
 
     return true;
   }

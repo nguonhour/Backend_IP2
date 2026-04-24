@@ -1,17 +1,14 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  ManyToOne,
-  JoinColumn,
-} from 'typeorm';
+import { Entity, PrimaryColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Job } from './job.entity';
 import { Skill } from '../../entities/master/skill.entity';
 
 @Entity('job_skills')
 export class JobSkill {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryColumn({ name: 'job_id', type: 'uuid' })
+  jobId: string;
+
+  @PrimaryColumn({ name: 'skill_id', type: 'uuid' })
+  skillId: string;
 
   @ManyToOne(() => Job, (job) => job.jobSkills)
   @JoinColumn({ name: 'job_id' })

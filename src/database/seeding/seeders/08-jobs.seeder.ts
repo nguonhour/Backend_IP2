@@ -62,6 +62,19 @@ export class JobsSeeder implements Seeder {
 
     // 2. Loop through the imported JSON array
     for (const jobData of jobsArray) {
+      const existingJob = await this.jobRepository.findOne({
+        where: {
+          title: jobData.title,
+          employer: { id: employer.id },
+        },
+        relations: ['employer'],
+      });
+
+      if (existingJob) {
+        this.logger.debug(`Job already exists: ${jobData.title}. Skipping.`);
+        continue;
+      }
+
       // 3. Map the JSON data to the Entity, replacing placeholders with REAL database IDs
       const newJob = this.jobRepository.create({
         ...jobData,

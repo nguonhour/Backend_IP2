@@ -14,6 +14,7 @@ import { EmployerProfilesService } from './employer-profiles.service';
 import { CreateEmployerProfileDto } from './dto/create-employer-profile.dto';
 import { UpdateEmployerProfileDto } from './dto/update-employer-profile.dto';
 import { TestAuthGuard } from '../auth/test-auth.guard';
+import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
 
 @Controller('employers')
 export class EmployerProfilesController {
@@ -24,7 +25,7 @@ export class EmployerProfilesController {
   @UseGuards(TestAuthGuard)
   @Post()
   async createProfile(
-    @Request() req,
+    @Request() req: AuthenticatedRequest,
     @Body() dto: CreateEmployerProfileDto,
   ) {
     // Create employer profile for the authenticated user
@@ -33,7 +34,7 @@ export class EmployerProfilesController {
 
   @UseGuards(TestAuthGuard)
   @Get('me')
-  async getMyProfile(@Request() req) {
+  async getMyProfile(@Request() req: AuthenticatedRequest) {
     return this.employerProfilesService.findByUserId(req.user.id);
   }
 
@@ -46,7 +47,7 @@ export class EmployerProfilesController {
   @UseGuards(TestAuthGuard)
   @Put()
   async updateProfile(
-    @Request() req,
+    @Request() req: AuthenticatedRequest,
     @Body() dto: UpdateEmployerProfileDto,
   ) {
     return this.employerProfilesService.update(req.user.id, dto);
@@ -54,7 +55,7 @@ export class EmployerProfilesController {
 
   @UseGuards(TestAuthGuard)
   @Delete()
-  async deleteProfile(@Request() req) {
+  async deleteProfile(@Request() req: AuthenticatedRequest) {
     return this.employerProfilesService.delete(req.user.id);
   }
 }

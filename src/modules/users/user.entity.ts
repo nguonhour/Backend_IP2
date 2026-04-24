@@ -1,39 +1,52 @@
 import {
   Entity,
   Column,
+  CreateDateColumn,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
   ManyToOne,
   OneToMany,
   OneToOne,
+  JoinColumn,
 } from 'typeorm';
 import { Role } from '../../entities/master/role.entity';
 import { StudentProfile } from '../../modules/student-profiles/student-profile.entity';
 import { EmployerProfile } from '../../modules/employer-profiles/employer-profile.entity';
-import { Resume } from '../resumes/resume.entity';
 import { Notification } from '../notifications/notification.entity';
+import { ApplicationStatusHistory } from '../applications/application-status-history.entity';
+import { Report } from '../reports/report.entity';
 
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
+  @Column({ type: 'varchar', unique: true, nullable: false })
   email: string;
 
-  @Column({ nullable: true })
+  @Column({ name: 'password_hash', type: 'varchar', nullable: true })
   passwordHash: string;
 
-  @Column({ nullable: true })
+  @Column({
+    name: 'auth_provider',
+    type: 'varchar',
+    default: 'LOCAL',
+    nullable: false,
+  })
   authProvider: string;
 
-  @ManyToOne(() => Role, (role) => role.users)
+  @ManyToOne(() => Role, (role) => role.users, { nullable: false })
+  @JoinColumn({ name: 'role_id' })
   role: Role;
 
-  @Column({ nullable: true })
+  @Column({ name: 'is_verified', type: 'boolean', default: false })
   isVerified: boolean;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
+  updatedAt: Date;
 
   @OneToOne(() => StudentProfile, (profile) => profile.user)
   studentProfile: StudentProfile;
@@ -41,9 +54,12 @@ export class User {
   @OneToOne(() => EmployerProfile, (profile) => profile.user)
   employerProfile: EmployerProfile;
 
-  @OneToMany(() => Resume, (resume) => resume.user)
-  resumes: Resume[];
-
   @OneToMany(() => Notification, (notification) => notification.user)
   notifications: Notification[];
+
+  @OneToMany(() => ApplicationStatusHistory, (history) => history.changedBy)
+  applicationStatusChanges: ApplicationStatusHistory[];
+
+  @OneToMany(() => Report, (report) => report.reporter)
+  reports: Report[];
 }
