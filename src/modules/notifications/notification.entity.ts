@@ -1,6 +1,7 @@
 import {
   Entity,
   Column,
+  CreateDateColumn,
   PrimaryGeneratedColumn,
   ManyToOne,
   JoinColumn,
@@ -19,15 +20,15 @@ export class Notification {
   @Column()
   type: string;
 
-  @Column({ nullable: true })
+  @Column({ name: 'reference_id', type: 'uuid', nullable: true })
   referenceId: string;
 
   @Column({ type: 'text' })
   message: string;
 
-  @Column({ default: false })
+  @Column({ name: 'is_read', default: false })
   isRead: boolean;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
 }

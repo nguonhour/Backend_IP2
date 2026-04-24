@@ -1,7 +1,9 @@
 import {
   Entity,
   Column,
+  CreateDateColumn,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
   ManyToOne,
   OneToMany,
   JoinColumn,
@@ -41,24 +43,33 @@ export class Job {
   description: string;
 
   @Column({ type: 'text', nullable: true })
-  summary: string;
-
-  // @Column({ type: 'text', nullable: true })
-  // requirements: string;
+  requirements: string;
 
   @Column({ type: 'text', nullable: true })
   benefits: string;
 
-  @Column({ nullable: true })
+  @Column({ name: 'image_url', nullable: true })
   imageUrl: string;
 
   @Column({ nullable: true })
   location: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'salary_min',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   salaryMin: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'salary_max',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   salaryMax: number;
 
   @Column({ nullable: true })
@@ -71,10 +82,10 @@ export class Job {
   @JoinColumn({ name: 'status_id' })
   status: JobStatus;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
   updatedAt: Date;
 
   @OneToMany(() => Application, (application) => application.job)

@@ -39,6 +39,19 @@ import { StudentSkill } from '../../modules/student-profiles/student-skill.entit
 import { SearchHistory } from '../../modules/student-profiles/search-history.entity';
 import { Notification } from '../../modules/notifications/notification.entity';
 
+// function parsePort(value: string): number {
+//   const parsed = Number.parseInt(value, 10);
+//   if (Number.isNaN(parsed)) {
+//     throw new Error(`Invalid DB_PORT value: ${value}`);
+//   }
+//   return parsed;
+// }
+
+function parseBoolean(value: string | undefined, fallback = false): boolean {
+  if (value === undefined) return fallback;
+  return ['true', '1', 'yes', 'on'].includes(value.toLowerCase());
+}
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -46,6 +59,11 @@ import { Notification } from '../../modules/notifications/notification.entity';
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL,
+      // host: process.env.DB_HOST ?? 'localhost',
+      // port: parsePort(process.env.DB_PORT ?? '5432'),
+      // username: process.env.DB_USERNAME,
+      // password: process.env.DB_PASSWORD,
+      // database: process.env.DB_NAME,
       entities: [
         Role,
         User,
@@ -63,7 +81,6 @@ import { Notification } from '../../modules/notifications/notification.entity';
         Skill,
         Report,
         JobHistory,
-        Report,
         JobStatus,
         Resume,
         ApplicationStatus,
@@ -75,7 +92,8 @@ import { Notification } from '../../modules/notifications/notification.entity';
         SearchHistory,
         Notification,
       ],
-      synchronize: false,
+      synchronize: parseBoolean(process.env.DB_SYNC, false),
+      dropSchema: parseBoolean(process.env.DB_DROP_SCHEMA, false),
     }),
 
     TypeOrmModule.forFeature([

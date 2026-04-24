@@ -13,8 +13,10 @@ export class EmployerProfilesSeeder implements Seeder {
   constructor(
     @InjectRepository(EmployerProfile)
     private readonly employerProfileRepository: Repository<EmployerProfile>,
+
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+
     @InjectRepository(Industry)
     private readonly industryRepository: Repository<Industry>,
   ) {}
@@ -23,11 +25,11 @@ export class EmployerProfilesSeeder implements Seeder {
     this.logger.log('Seeding employer profiles...');
 
     const employerEmail = 'employer1@gmail.com';
-    const companyName = 'TechNova Co., Ltd.';
 
     const user = await this.userRepository.findOne({
       where: { email: employerEmail },
     });
+
     if (!user) {
       this.logger.error('Employer user not found. Run Users seeder first.');
       return;
@@ -36,13 +38,16 @@ export class EmployerProfilesSeeder implements Seeder {
     const industry = await this.industryRepository.findOne({
       where: { name: 'Technology' },
     });
+
     if (!industry) {
       this.logger.error('Industry not found. Run Industries seeder first.');
       return;
     }
 
     const existing = await this.employerProfileRepository.findOne({
-      where: { user: { id: user.id } },
+      where: {
+        user: { id: user.id },
+      },
       relations: ['user'],
     });
 
@@ -51,15 +56,16 @@ export class EmployerProfilesSeeder implements Seeder {
       return;
     }
 
-    await this.employerProfileRepository.save(
-      this.employerProfileRepository.create({
-        user,
-        companyName,
-        industry,
-        location: 'Phnom Penh',
-        contactEmail: 'hr@technova.example.com',
-      }),
-    );
+    const profile = this.employerProfileRepository.create({
+      user,
+      industry,
+      companyName: 'TechNova Co., Ltd.',
+      location: 'Phnom Penh',
+      contactEmail: 'hr@technova.example.com',
+      avatarUrl: null,
+    });
+
+    await this.employerProfileRepository.save(profile);
 
     this.logger.log(`Created employer profile for: ${employerEmail}`);
   }

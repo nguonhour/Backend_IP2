@@ -1,11 +1,13 @@
 import {
   Entity,
-  Column,
+  CreateDateColumn,
   PrimaryGeneratedColumn,
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
 import { Application } from './application.entity';
+import { ApplicationStatus } from '../../entities/master/application-status.entity';
+import { User } from '../users/user.entity';
 
 @Entity('application_status_history')
 export class ApplicationStatusHistory {
@@ -16,12 +18,16 @@ export class ApplicationStatusHistory {
   @JoinColumn({ name: 'application_id' })
   application: Application;
 
-  @Column()
-  statusId: string;
+  @ManyToOne(() => ApplicationStatus, { nullable: false })
+  @JoinColumn({ name: 'status_id' })
+  status: ApplicationStatus;
 
-  @Column({ nullable: true })
-  changedBy: string;
+  @ManyToOne(() => User, (user) => user.applicationStatusChanges, {
+    nullable: true,
+  })
+  @JoinColumn({ name: 'changed_by' })
+  changedBy: User;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn({ name: 'changed_at', type: 'timestamp' })
   changedAt: Date;
 }

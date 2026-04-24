@@ -1,21 +1,22 @@
 import {
   Entity,
   Column,
+  CreateDateColumn,
   PrimaryGeneratedColumn,
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { StudentProfile } from '../student-profiles/student-profile.entity';
 import { Job } from '../jobs/job.entity';
+import { User } from '../users/user.entity';
 
 @Entity('reports')
 export class Report {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => StudentProfile)
+  @ManyToOne(() => User, (user) => user.reports)
   @JoinColumn({ name: 'reporter_id' })
-  reporter: StudentProfile;
+  reporter: User;
 
   @ManyToOne(() => Job, (job) => job.reports)
   @JoinColumn({ name: 'job_id' })
@@ -24,9 +25,9 @@ export class Report {
   @Column({ type: 'text' })
   reason: string;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
 
-  @Column()
+  @Column({ type: 'varchar' })
   status: string;
 }

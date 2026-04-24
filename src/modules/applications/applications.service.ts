@@ -94,8 +94,8 @@ export class ApplicationsService {
     await this.applicationStatusHistoryRepository.save(
       this.applicationStatusHistoryRepository.create({
         application: { id: savedApplication.id },
-        statusId: initialStatus.id,
-        changedBy: userId,
+        status: { id: initialStatus.id },
+        changedBy: { id: userId },
       }),
     );
 
@@ -232,14 +232,16 @@ export class ApplicationsService {
       throw new NotFoundException('Application status not found');
     }
 
-    application.currentStatus = { id: dto.statusId } as Application['currentStatus'];
+    application.currentStatus = {
+      id: dto.statusId,
+    } as Application['currentStatus'];
     await this.applicationRepository.save(application);
 
     await this.applicationStatusHistoryRepository.save(
       this.applicationStatusHistoryRepository.create({
         application: { id: application.id },
-        statusId: nextStatus.id,
-        changedBy: userId,
+        status: { id: nextStatus.id },
+        changedBy: { id: userId },
       }),
     );
 
@@ -270,26 +272,35 @@ export class ApplicationsService {
     }
 
     if (job.employer.user.id !== userId) {
-      throw new ForbiddenException('You do not have permission to view this job');
+      throw new ForbiddenException(
+        'You do not have permission to view this job',
+      );
     }
   }
 
   private ensureJobIsOpenForApplications(job: Job) {
     const statusName = job.status?.name?.toLowerCase().trim();
 
-    if (!statusName || ['draft', 'closed', 'filled', 'expired', 'paused'].includes(statusName)) {
+    if (
+      !statusName ||
+      ['draft', 'closed', 'filled', 'expired', 'paused'].includes(statusName)
+    ) {
       throw new ForbiddenException('This job is not open for applications');
     }
 
     if (job.deadline && new Date(job.deadline) < new Date()) {
-      throw new ForbiddenException('This job is no longer accepting applications');
+      throw new ForbiddenException(
+        'This job is no longer accepting applications',
+      );
     }
   }
 
   private async getResumeOwnedByUser(resumeId: string, userId: string) {
+    const student = await this.getStudentProfileByUserId(userId);
+
     const resume = await this.resumeRepository.findOne({
-      where: { id: resumeId, user: { id: userId } },
-      relations: ['user'],
+      where: { id: resumeId, student: { id: student.id } },
+      relations: ['student'],
     });
 
     if (!resume) {
@@ -300,11 +311,12 @@ export class ApplicationsService {
   }
 
   private async getDefaultResumeForUser(userId: string) {
+    const student = await this.getStudentProfileByUserId(userId);
+
     return this.resumeRepository.findOne({
-      where: { user: { id: userId }, isDefault: true },
-      relations: ['user'],
+      where: { student: { id: student.id }, isDefault: true },
+      relations: ['student'],
       order: { createdAt: 'DESC' },
     });
   }
-
 }
