@@ -18,9 +18,12 @@ export class UpdateJobDto {
   @IsOptional()
   description?: string;
 
+  // @IsString()
+  // @IsOptional()
+  // requirements?: string;
+
   @IsString()
   @IsOptional()
-  @MaxLength(200)
   summary?: string;
 
   @IsString()
