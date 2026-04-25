@@ -31,10 +31,10 @@ function requireEnv(name: string): string {
 //   return parsed;
 // }
 
-// function parseBoolean(value: string | undefined, fallback = false): boolean {
-//   if (value === undefined) return fallback;
-//   return ['true', '1', 'yes', 'on'].includes(value.toLowerCase());
-// }
+function parseBoolean(value: string | undefined, fallback = false): boolean {
+  if (value === undefined) return fallback;
+  return ['true', '1', 'yes', 'on'].includes(value.toLowerCase());
+}
 
 @Module({
   controllers: [AppController],
@@ -45,6 +45,9 @@ function requireEnv(name: string): string {
     TypeOrmModule.forRootAsync({
       useFactory: (): TypeOrmModuleOptions => {
         const databaseUrl = requireEnv('DATABASE_URL').trim();
+        const synchronize = parseBoolean(process.env.DB_SYNC, false);
+        const dropSchema = parseBoolean(process.env.DB_DROP_SCHEMA, false);
+        const isSupabase = databaseUrl.includes('supabase.com');
         // const host = (process.env.DB_HOST ?? 'localhost').trim();
         // const port = parsePort(process.env.DB_PORT ?? '5432');
         // const username = requireEnv('DB_USERNAME').trim();
@@ -65,10 +68,9 @@ function requireEnv(name: string): string {
           // dropSchema,
           url: databaseUrl,
           autoLoadEntities: true,
-          synchronize: false,
-          ssl: {
-            rejectUnauthorized: false,
-          },
+          synchronize,
+          dropSchema,
+          ssl: isSupabase ? { rejectUnauthorized: false } : false,
         };
       },
     }),
