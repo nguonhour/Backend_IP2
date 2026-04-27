@@ -10,7 +10,7 @@ import {
 
 export class CreateJobDto {
   @IsString()
-  @MaxLength(200)
+  @MaxLength(100)
   title: string;
 
   @IsString()
@@ -18,7 +18,8 @@ export class CreateJobDto {
 
   @IsString()
   @IsOptional()
-  requirements?: string;
+  @MaxLength(200)
+  summary?: string;
 
   @IsString()
   @IsOptional()
