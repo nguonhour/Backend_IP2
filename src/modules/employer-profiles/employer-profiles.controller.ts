@@ -13,7 +13,7 @@ import {
 import { EmployerProfilesService } from './employer-profiles.service';
 import { CreateEmployerProfileDto } from './dto/create-employer-profile.dto';
 import { UpdateEmployerProfileDto } from './dto/update-employer-profile.dto';
-import { TestAuthGuard } from '../auth/test-auth.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
 
 @Controller('employers')
@@ -22,7 +22,7 @@ export class EmployerProfilesController {
     private readonly employerProfilesService: EmployerProfilesService,
   ) {}
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Post()
   async createProfile(
     @Request() req: AuthenticatedRequest,
@@ -32,19 +32,19 @@ export class EmployerProfilesController {
     return this.employerProfilesService.create(req.user.id, dto);
   }
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Get('me')
   async getMyProfile(@Request() req: AuthenticatedRequest) {
     return this.employerProfilesService.findByUserId(req.user.id);
   }
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   async getProfileById(@Param('id', ParseUUIDPipe) id: string) {
     return this.employerProfilesService.findById(id);
   }
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Put()
   async updateProfile(
     @Request() req: AuthenticatedRequest,
@@ -53,7 +53,7 @@ export class EmployerProfilesController {
     return this.employerProfilesService.update(req.user.id, dto);
   }
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Delete()
   async deleteProfile(@Request() req: AuthenticatedRequest) {
     return this.employerProfilesService.delete(req.user.id);
