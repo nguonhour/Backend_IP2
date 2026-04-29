@@ -66,6 +66,15 @@ export class ApplicationsController {
   }
 
   @UseGuards(TestAuthGuard)
+  @Get('employer/pipeline')
+  async getCandidatePipeline(
+    @Request() req: AuthenticatedRequest,
+    @Query('jobId') jobId?: string,
+  ) {
+    return this.applicationsService.getCandidatePipeline(req.user.id, { jobId });
+  }
+
+  @UseGuards(TestAuthGuard)
   @Get('employer/:id')
   async getEmployerApplicationById(
     @Request() req: AuthenticatedRequest,
