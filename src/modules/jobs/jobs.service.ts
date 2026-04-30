@@ -42,9 +42,9 @@ export class JobsService {
       .leftJoinAndSelect('job.jobType', 'jobType')
       .leftJoinAndSelect('job.status', 'status')
       .leftJoinAndSelect('job.employer', 'employer')
-      // .where('LOWER(status.name) IN (:...visibleStatuses)', {
-      //   visibleStatuses: PUBLIC_JOB_STATUS_NAMES,
-      // })
+      .where('LOWER(status.name) IN (:...visibleStatuses)', {
+        visibleStatuses: PUBLIC_JOB_STATUS_NAMES,
+      })
       .andWhere('(job.deadline IS NULL OR job.deadline >= NOW())')
       .orderBy('job.createdAt', 'DESC')
       .getMany();
@@ -127,7 +127,7 @@ export class JobsService {
     Object.assign(job, {
       title: dto.title ?? job.title,
       description: dto.description ?? job.description,
-      requirements: dto.requirements ?? job.requirements,
+      summary: dto.summary ?? job.summary,
       benefits: dto.benefits ?? job.benefits,
       imageUrl: dto.imageUrl ?? job.imageUrl,
       location: dto.location ?? job.location,
@@ -255,8 +255,8 @@ export class JobsService {
         job: { id: job.id },
         title: job.title,
         description: job.description,
-        salaryMin: job.salaryMin,
-        salaryMax: job.salaryMax,
+        salary_min: job.salaryMin,
+        salary_max: job.salaryMax,
       }),
     );
   }

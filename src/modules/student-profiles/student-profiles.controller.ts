@@ -9,7 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { StudentProfilesService } from './student-profiles.service';
-import { TestAuthGuard } from '../auth/test-auth.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
 
 @Controller('students')
@@ -18,7 +18,7 @@ export class StudentProfilesController {
     private readonly studentProfilesService: StudentProfilesService,
   ) {}
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Post('save-job/:jobId')
   async saveJob(
     @Request() req: AuthenticatedRequest,
@@ -27,13 +27,13 @@ export class StudentProfilesController {
     return this.studentProfilesService.saveJob(req.user.id, jobId);
   }
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Get('saved-jobs')
   async getSavedJobs(@Request() req: AuthenticatedRequest) {
     return this.studentProfilesService.getSavedJobs(req.user.id);
   }
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Delete('save-job/:jobId')
   async removeSavedJob(
     @Request() req: AuthenticatedRequest,

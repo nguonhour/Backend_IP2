@@ -18,7 +18,7 @@ import { JobsService } from './jobs.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { UpdateJobStatusDto } from './dto/update-job-status.dto';
-import { TestAuthGuard } from '../auth/test-auth.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JobSearchDto } from './dto/search-job.dto';
 import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
 
@@ -32,7 +32,7 @@ export class JobsController {
     return this.jobsService.getAllJobs();
   }
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Get('me/posted')
   async getMyPostedJobs(@Request() req: AuthenticatedRequest) {
     return this.jobsService.getMyPostedJobs(req.user.id);
@@ -50,7 +50,7 @@ export class JobsController {
   }
 
   // Employer (HR) only - Create, Update, Delete jobs
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Post()
   async createJob(
     @Request() req: AuthenticatedRequest,
@@ -59,7 +59,7 @@ export class JobsController {
     return this.jobsService.createJob(req.user.id, dto);
   }
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Put(':id')
   async updateJob(
     @Request() req: AuthenticatedRequest,
@@ -69,7 +69,7 @@ export class JobsController {
     return this.jobsService.updateJob(req.user.id, id, dto);
   }
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Patch(':id/status')
   async updateJobStatus(
     @Request() req: AuthenticatedRequest,
@@ -79,7 +79,7 @@ export class JobsController {
     return this.jobsService.updateJobStatus(req.user.id, id, dto);
   }
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
   async deleteJob(
     @Request() req: AuthenticatedRequest,
