@@ -3,7 +3,6 @@ import {
   Column,
   PrimaryGeneratedColumn,
   OneToMany,
-  CreateDateColumn,
 } from 'typeorm';
 import { Application } from '../../modules/applications/application.entity';
 
@@ -17,9 +16,6 @@ export class ApplicationStatus {
 
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
-
-  @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
-  createdAt: Date;
 
   @OneToMany(() => Application, (application) => application.currentStatus)
   applications: Application[];

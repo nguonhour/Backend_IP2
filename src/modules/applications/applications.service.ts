@@ -109,7 +109,6 @@ export class ApplicationsService {
       .createQueryBuilder('application')
       .innerJoinAndSelect('application.job', 'job')
       .innerJoinAndSelect('application.currentStatus', 'status')
-      .leftJoinAndSelect('application.resume', 'resume')
       .innerJoin('application.student', 'studentProfile')
       .where('studentProfile.id = :studentId', { studentId: student.id });
 

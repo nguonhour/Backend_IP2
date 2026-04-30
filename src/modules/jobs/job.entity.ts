@@ -43,7 +43,7 @@ export class Job {
   description: string;
 
   @Column({ type: 'text', nullable: true })
-  requirements: string;
+  summary: string;
 
   @Column({ type: 'text', nullable: true })
   benefits: string;
