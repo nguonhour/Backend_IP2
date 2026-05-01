@@ -93,7 +93,6 @@ export class JobsService {
 
   async getMyPostedJobs(userId: string) {
     const employer = await this.getEmployerProfileByUserId(userId);
-
     const jobs = await this.jobRepository
       .createQueryBuilder('job')
       .leftJoinAndSelect('job.category', 'category')
@@ -104,7 +103,6 @@ export class JobsService {
       .where('employer.id = :employerId', { employerId: employer.id })
       .orderBy('job.createdAt', 'DESC')
       .getMany();
-
     return jobs.map((job) => ({
       ...job,
       isExpired: job.deadline ? new Date(job.deadline) < new Date() : false,

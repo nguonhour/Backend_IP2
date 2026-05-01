@@ -11,11 +11,15 @@ export class SavedJob {
   @PrimaryColumn({ name: 'job_id', type: 'uuid' })
   jobId: string;
 
-  @ManyToOne(() => StudentProfile, (student) => student.savedJobs)
+  @ManyToOne(() => StudentProfile, (student) => student.savedJobs,{
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'student_id' })
   student: StudentProfile;
 
-  @ManyToOne(() => Job, (job) => job.savedBy)
+  @ManyToOne(() => Job, (job) => job.savedBy, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'job_id' })
   job: Job;
 }

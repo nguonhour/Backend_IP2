@@ -19,11 +19,15 @@ export class Application {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => Job, (job) => job.applications)
+  @ManyToOne(() => Job, (job) => job.applications, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'job_id' })
   job: Job;
 
-  @ManyToOne(() => StudentProfile, (student) => student.applications)
+  @ManyToOne(() => StudentProfile, (student) => student.applications, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'student_id' })
   student: StudentProfile;
 
