@@ -7,15 +7,26 @@ import { Response } from 'express';
 import { createHash } from 'crypto';
 import { UserRepository } from '../repositories/user.repository';
 import { TokenService } from '../services/token.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { EmployerProfile } from '../../employer-profiles/employer-profile.entity';
 
 @Injectable()
 export class SignupUseCase {
   constructor(
     private readonly userRepo: UserRepository,
     private readonly tokenService: TokenService,
+    @InjectRepository(EmployerProfile)
+    private readonly employerProfileRepo: Repository<EmployerProfile>,
   ) {}
 
-  async execute(email: string, password: string, role: string, res: Response) {
+  async execute(
+    email: string,
+    password: string,
+    role: string,
+    res: Response,
+    employerData?: { companyName: string; contactNumber: string; position: string; companyWebsite?: string },
+  ) {
     const existing = await this.userRepo.findByEmail(email);
     if (existing.data) {
       throw new ConflictException('Email already exists');
@@ -34,6 +45,16 @@ export class SignupUseCase {
       throw new InternalServerErrorException('Unable to create user');
     }
 
+    // Create employer profile if role is employer
+    if (role.toUpperCase() === 'EMPLOYER') {
+      const employerProfile = this.employerProfileRepo.create({
+        user: { id: user.id },
+        companyName: employerData?.companyName || 'Unknown Company',
+        contactEmail: user.email,
+      });
+      await this.employerProfileRepo.save(employerProfile);
+    }
+
     const tokens = this.tokenService.generateTokens(user);
     await this.userRepo.updateRefreshToken(user.id, tokens.refreshToken);
 
@@ -49,7 +70,7 @@ export class SignupUseCase {
       user: {
         id: user.id,
         email: user.email,
-        role: user.role?.name,
+        role: role,
       },
     };
   }
