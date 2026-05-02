@@ -64,4 +64,10 @@ export class UpdateJobDto {
   @IsUUID()
   @IsOptional()
   statusId?: string;
+
+  @IsNumber()
+  @Min(1)
+  @IsOptional()
+  numberOfOpenings?: number;
+
 }

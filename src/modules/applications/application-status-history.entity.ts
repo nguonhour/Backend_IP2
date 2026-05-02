@@ -19,15 +19,15 @@ export class ApplicationStatusHistory {
   application: Application;
 
   @ManyToOne(() => ApplicationStatus, { nullable: false })
-  @JoinColumn({ name: 'status_id' })
+  @JoinColumn({ name: 'statusId' })
   status: ApplicationStatus;
 
   @ManyToOne(() => User, (user) => user.applicationStatusChanges, {
     nullable: true,
   })
-  @JoinColumn({ name: 'changed_by' })
+  @JoinColumn({ name: 'changedBy' })
   changedBy: User;
 
-  @CreateDateColumn({ name: 'changed_at', type: 'timestamp' })
+  @CreateDateColumn({ name: 'changedAt', type: 'timestamp' })
   changedAt: Date;
 }

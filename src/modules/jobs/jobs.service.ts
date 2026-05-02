@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -62,6 +63,8 @@ export class JobsService {
       .leftJoinAndSelect('job.jobType', 'jobType')
       .leftJoinAndSelect('job.status', 'status')
       .leftJoinAndSelect('job.employer', 'employer')
+      .loadRelationCountAndMap('job.applicantsCount', 'job.applications')
+      .loadRelationCountAndMap('job.viewsCount', 'job.views')
       .where('job.id = :id', { id })
       .andWhere('LOWER(status.name) IN (:...visibleStatuses)', {
         visibleStatuses: PUBLIC_JOB_STATUS_NAMES,
@@ -100,6 +103,7 @@ export class JobsService {
       .leftJoinAndSelect('job.status', 'status')
       .leftJoinAndSelect('job.employer', 'employer')
       .loadRelationCountAndMap('job.applicantsCount', 'job.applications')
+      .loadRelationCountAndMap('job.viewsCount', 'job.views')
       .where('employer.id = :employerId', { employerId: employer.id })
       .orderBy('job.createdAt', 'DESC')
       .getMany();
@@ -132,6 +136,7 @@ export class JobsService {
       salaryMin: dto.salaryMin ?? job.salaryMin,
       salaryMax: dto.salaryMax ?? job.salaryMax,
       currency: dto.currency ?? job.currency,
+      numberOfOpenings: dto.numberOfOpenings ?? job.numberOfOpenings,
       deadline: dto.deadline ? new Date(dto.deadline) : job.deadline,
       category: dto.categoryId
         ? ({ id: dto.categoryId } as Job['category'])
@@ -186,6 +191,19 @@ export class JobsService {
     }
 
     this.ensureEmployerOwnsJob(job, userId);
+
+    const applicationsCount = await this.jobRepository
+      .createQueryBuilder('job')
+      .leftJoin('job.applications', 'application')
+      .where('job.id = :id', { id: job.id })
+      .select('COUNT(application.id)', 'count')
+      .getRawOne<{ count: string }>();
+
+    if (Number(applicationsCount?.count ?? 0) > 0) {
+      throw new BadRequestException(
+        'Cannot delete this job because it already has applications. Please close the job instead.',
+      );
+    }
 
     await this.jobRepository.remove(job);
     return { message: 'Job deleted successfully' };
