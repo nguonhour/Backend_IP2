@@ -69,4 +69,8 @@ export class CreateJobDto {
   @IsUUID()
   @IsOptional()
   employerId?: string;
+
+  @IsNumber()
+  @Min(1)
+  numberOfOpenings: number;
 }

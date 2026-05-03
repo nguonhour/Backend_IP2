@@ -38,6 +38,15 @@ export class JobsController {
     return this.jobsService.getMyPostedJobs(req.user.id);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('me/posted/:id')
+  async getMyPostedJobById(
+    @Request() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.jobsService.getMyPostedJobById(req.user.id, id);
+  }
+
   @Get('search')
   @UsePipes(new ValidationPipe({ transform: true }))
   async searchJobs(@Query() query: JobSearchDto) {

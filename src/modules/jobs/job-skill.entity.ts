@@ -10,11 +10,15 @@ export class JobSkill {
   @PrimaryColumn({ name: 'skill_id', type: 'uuid' })
   skillId: string;
 
-  @ManyToOne(() => Job, (job) => job.jobSkills)
+  @ManyToOne(() => Job, (job) => job.jobSkills, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'job_id' })
   job: Job;
 
-  @ManyToOne(() => Skill, (skill) => skill.jobSkills)
+  @ManyToOne(() => Skill, (skill) => skill.jobSkills, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'skill_id' })
   skill: Skill;
 }

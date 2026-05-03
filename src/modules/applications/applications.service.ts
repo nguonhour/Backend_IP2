@@ -283,6 +283,44 @@ export class ApplicationsService {
       throw new NotFoundException('Application status not found');
     }
 
+    const isMovingToAccepted = this.isAcceptedStatusName(nextStatus.name);
+    const isAlreadyAccepted = this.isAcceptedStatusName(
+      application.currentStatus?.name,
+    );
+
+    if (isMovingToAccepted && !isAlreadyAccepted) {
+      const job = await this.jobRepository.findOne({
+        where: { id: application.job.id },
+      });
+
+      if (!job) {
+        throw new NotFoundException('Job not found');
+      }
+
+      if (job.numberOfOpenings !== null && job.numberOfOpenings !== undefined) {
+        if (job.numberOfOpenings <= 0) {
+          throw new ConflictException('No openings remaining for this job');
+        }
+        job.numberOfOpenings -= 1;
+        await this.jobRepository.save(job);
+      }
+    }
+
+    if (!isMovingToAccepted && isAlreadyAccepted) {
+      const job = await this.jobRepository.findOne({
+        where: { id: application.job.id },
+      });
+
+      if (!job) {
+        throw new NotFoundException('Job not found');
+      }
+
+      if (job.numberOfOpenings !== null && job.numberOfOpenings !== undefined) {
+        job.numberOfOpenings += 1;
+        await this.jobRepository.save(job);
+      }
+    }
+
     application.currentStatus = {
       id: dto.statusId,
     } as Application['currentStatus'];
@@ -344,6 +382,19 @@ export class ApplicationsService {
         'This job is no longer accepting applications',
       );
     }
+
+    if (
+      job.numberOfOpenings !== null &&
+      job.numberOfOpenings !== undefined &&
+      job.numberOfOpenings <= 0
+    ) {
+      throw new ForbiddenException('This job has no openings remaining');
+    }
+  }
+
+  private isAcceptedStatusName(statusName?: string | null) {
+    const normalized = (statusName ?? '').trim().toLowerCase();
+    return normalized === 'accepted' || normalized === 'hired';
   }
 
   private async getResumeOwnedByUser(resumeId: string, userId: string) {

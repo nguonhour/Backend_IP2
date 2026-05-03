@@ -14,11 +14,15 @@ export class Report {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => User, (user) => user.reports)
+  @ManyToOne(() => User, (user) => user.reports, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'reporter_id' })
   reporter: User;
 
-  @ManyToOne(() => Job, (job) => job.reports)
+  @ManyToOne(() => Job, (job) => job.reports, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'job_id' })
   job: Job;
 

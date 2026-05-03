@@ -12,7 +12,9 @@ export class JobHistory {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => Job, (job) => job.history)
+  @ManyToOne(() => Job, (job) => job.history, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'job_id' })
   job: Job;
 
