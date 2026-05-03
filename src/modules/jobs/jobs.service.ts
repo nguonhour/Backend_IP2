@@ -16,6 +16,7 @@ import { JobType } from '../../entities/master/job-type.entity';
 import { JobStatus } from '../../entities/master/job-status.entity';
 import { JobHistory } from './job-history.entity';
 import { JobSearchDto } from './dto/search-job.dto';
+import { Payment } from '../payments/payment.entity';
 
 const PUBLIC_JOB_STATUS_NAMES = ['published', 'active', 'open'];
 
@@ -34,6 +35,8 @@ export class JobsService {
     private jobStatusRepository: Repository<JobStatus>,
     @InjectRepository(JobHistory)
     private jobHistoryRepository: Repository<JobHistory>,
+    @InjectRepository(Payment)
+    private paymentRepository: Repository<Payment>,
   ) {}
 
   async getAllJobs() {
@@ -111,6 +114,31 @@ export class JobsService {
       ...job,
       isExpired: job.deadline ? new Date(job.deadline) < new Date() : false,
     }));
+  }
+
+  async getMyPostedJobById(userId: string, id: string) {
+    const employer = await this.getEmployerProfileByUserId(userId);
+
+    const job = await this.jobRepository
+      .createQueryBuilder('job')
+      .leftJoinAndSelect('job.category', 'category')
+      .leftJoinAndSelect('job.jobType', 'jobType')
+      .leftJoinAndSelect('job.status', 'status')
+      .leftJoinAndSelect('job.employer', 'employer')
+      .loadRelationCountAndMap('job.applicantsCount', 'job.applications')
+      .loadRelationCountAndMap('job.viewsCount', 'job.views')
+      .where('job.id = :id', { id })
+      .andWhere('employer.id = :employerId', { employerId: employer.id })
+      .getOne();
+
+    if (!job) {
+      throw new NotFoundException('Job not found');
+    }
+
+    return {
+      ...job,
+      isExpired: job.deadline ? new Date(job.deadline) < new Date() : false,
+    };
   }
 
   async updateJob(userId: string, id: string, dto: UpdateJobDto) {
@@ -204,6 +232,21 @@ export class JobsService {
         'Cannot delete this job because it already has applications. Please close the job instead.',
       );
     }
+
+    // Keep payment records while detaching the deleted job reference.
+    await this.paymentRepository
+      .createQueryBuilder()
+      .update(Payment)
+      .set({ job: null as unknown as Payment['job'] })
+      .where('job_id = :jobId', { jobId: job.id })
+      .execute();
+
+    await this.jobHistoryRepository
+      .createQueryBuilder()
+      .delete()
+      .from(JobHistory)
+      .where('job_id = :jobId', { jobId: job.id })
+      .execute();
 
     await this.jobRepository.remove(job);
     return { message: 'Job deleted successfully' };
