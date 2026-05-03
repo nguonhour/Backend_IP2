@@ -10,6 +10,7 @@ import { JobStatusesSeeder } from './seeders/05-job-statuses.seeder';
 import { IndustriesSeeder } from './seeders/06-industries.seeder';
 import { EmployerProfilesSeeder } from './seeders/07-employer-profiles.seeder';
 import { JobsSeeder } from './seeders/08-jobs.seeder';
+import { ApplicationStatusesSeeder } from './seeders/09-application-statuses.seeder';
 import {
   ApplicationStatus,
   Industry,
@@ -105,6 +106,7 @@ function parseBoolean(value: string | undefined, fallback = false): boolean {
       JobCategory,
       JobType,
       JobStatus,
+      ApplicationStatus,
     ]),
   ],
 
@@ -117,6 +119,7 @@ function parseBoolean(value: string | undefined, fallback = false): boolean {
     JobTypesSeeder,
     JobStatusesSeeder,
     JobsSeeder,
+    ApplicationStatusesSeeder,
   ],
 })
 export class SeedModule {}

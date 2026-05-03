@@ -143,6 +143,58 @@ export class ApplicationsService {
     return application;
   }
 
+  async getCandidatePipeline(
+    userId: string,
+    filters?: { jobId?: string },
+  ) {
+    const query = this.applicationRepository
+      .createQueryBuilder('application')
+      .innerJoinAndSelect('application.job', 'job')
+      .innerJoinAndSelect('application.currentStatus', 'status')
+      .innerJoinAndSelect('application.student', 'student')
+      .leftJoinAndSelect('student.user', 'studentUser')
+      .leftJoinAndSelect('student.university', 'university')
+      .leftJoinAndSelect('student.major', 'major')
+      .leftJoinAndSelect('application.resume', 'resume')
+      .innerJoin('job.employer', 'employer')
+      .innerJoin('employer.user', 'employerUser')
+      .where('employerUser.id = :userId', { userId });
+
+    if (filters?.jobId) {
+      query.andWhere('job.id = :jobId', { jobId: filters.jobId });
+    }
+
+    const applications = await query
+      .orderBy('status.name', 'ASC')
+      .addOrderBy('application.appliedAt', 'DESC')
+      .getMany();
+
+    const pipeline = {
+      pending: [] as Application[],
+      reviewed: [] as Application[],
+      interviewing: [] as Application[],
+      offered: [] as Application[],
+      rejected: [] as Application[],
+    };
+
+    for (const app of applications) {
+      const statusName = app.currentStatus.name.toLowerCase();
+      if (statusName === 'pending' || statusName === 'applied') {
+        pipeline.pending.push(app);
+      } else if (statusName === 'reviewed') {
+        pipeline.reviewed.push(app);
+      } else if (statusName === 'interviewing') {
+        pipeline.interviewing.push(app);
+      } else if (statusName === 'offered') {
+        pipeline.offered.push(app);
+      } else if (statusName === 'rejected') {
+        pipeline.rejected.push(app);
+      }
+    }
+
+    return pipeline;
+  }
+
   async getEmployerInbox(
     userId: string,
     filters: { jobId?: string; status?: string },
