@@ -5,6 +5,8 @@ import {
   Res,
   Req,
   UnauthorizedException,
+  UseGuards,
+  Get,
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
 import { RegisterEmployerDto } from '../dto/register-employer.dto';
@@ -15,6 +17,9 @@ import { LoginUseCase } from '../use-case/login.usecase';
 import { RefreshTokenUseCase } from '../use-case/refresh-token.usecase';
 import { GoogleAuthDto } from '../dto/google.dto';
 import { GoogleUseCase } from '../use-case/google.usecase';
+import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import type{ AuthenticatedRequest } from '../../../common/types/auth-request.type';
+import { GetMeUseCase } from '../use-case/getMe_usecase';
 
 @Controller('auth')
 export class AuthController {
@@ -23,6 +28,7 @@ export class AuthController {
     private readonly loginUseCase: LoginUseCase,
     private readonly refreshTokenUseCase: RefreshTokenUseCase,
     private readonly googleUseCase: GoogleUseCase,
+    private readonly getMeUseCase: GetMeUseCase,
   ) {}
 
   @Get('me')

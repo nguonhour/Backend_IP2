@@ -91,6 +91,7 @@ export class StudentProfilesService {
     return { message: 'Job removed from saved list' };
   }
 
+
   private async getStudentProfileByUserId(userId: string) {
     let student = await this.studentProfileRepository.findOne({
       where: { externalUserId: userId },

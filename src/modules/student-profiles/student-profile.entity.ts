@@ -17,13 +17,15 @@ import { Application } from '../applications/application.entity';
 import { SavedJob } from '../jobs/saved-job.entity';
 import { SearchHistory } from './search-history.entity';
 import { Resume } from '../resumes/resume.entity';
+import { Exclude } from 'class-transformer';
 
 @Entity('student_profiles')
 export class StudentProfile {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @OneToOne(() => User, { nullable: true, onDelete: 'CASCADE' })
+  @Exclude()
+  @OneToOne(() => User, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User | null;
 
