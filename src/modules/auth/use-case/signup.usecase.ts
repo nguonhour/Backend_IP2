@@ -93,7 +93,7 @@ export class SignupUseCase {
       user: {
         id: user.id,
         email: user.email,
-        role: user.role?.name,
+        role: role,
       },
     };
   }

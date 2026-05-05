@@ -43,7 +43,7 @@ export class Job {
   description: string;
 
   @Column({ type: 'text', nullable: true })
-  requirements: string;
+  summary: string;
 
   @Column({ type: 'text', nullable: true })
   benefits: string;
@@ -74,6 +74,9 @@ export class Job {
 
   @Column({ nullable: true })
   currency: string;
+
+  @Column({ name: 'number_of_openings', type: 'int'})
+  numberOfOpenings: number;
 
   @Column({ type: 'timestamp', nullable: true })
   deadline: Date;

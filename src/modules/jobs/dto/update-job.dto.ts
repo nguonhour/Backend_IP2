@@ -18,9 +18,13 @@ export class UpdateJobDto {
   @IsOptional()
   description?: string;
 
+  // @IsString()
+  // @IsOptional()
+  // requirements?: string;
+
   @IsString()
   @IsOptional()
-  requirements?: string;
+  summary?: string;
 
   @IsString()
   @IsOptional()
@@ -63,4 +67,10 @@ export class UpdateJobDto {
   @IsUUID()
   @IsOptional()
   statusId?: string;
+
+  @IsNumber()
+  @Min(1)
+  @IsOptional()
+  numberOfOpenings?: number;
+
 }

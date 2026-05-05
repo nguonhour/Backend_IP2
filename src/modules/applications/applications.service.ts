@@ -109,7 +109,6 @@ export class ApplicationsService {
       .createQueryBuilder('application')
       .innerJoinAndSelect('application.job', 'job')
       .innerJoinAndSelect('application.currentStatus', 'status')
-      .leftJoinAndSelect('application.resume', 'resume')
       .innerJoin('application.student', 'studentProfile')
       .where('studentProfile.id = :studentId', { student: { id: student.id } });
 
@@ -142,6 +141,58 @@ export class ApplicationsService {
     }
 
     return application;
+  }
+
+  async getCandidatePipeline(
+    userId: string,
+    filters?: { jobId?: string },
+  ) {
+    const query = this.applicationRepository
+      .createQueryBuilder('application')
+      .innerJoinAndSelect('application.job', 'job')
+      .innerJoinAndSelect('application.currentStatus', 'status')
+      .innerJoinAndSelect('application.student', 'student')
+      .leftJoinAndSelect('student.user', 'studentUser')
+      .leftJoinAndSelect('student.university', 'university')
+      .leftJoinAndSelect('student.major', 'major')
+      .leftJoinAndSelect('application.resume', 'resume')
+      .innerJoin('job.employer', 'employer')
+      .innerJoin('employer.user', 'employerUser')
+      .where('employerUser.id = :userId', { userId });
+
+    if (filters?.jobId) {
+      query.andWhere('job.id = :jobId', { jobId: filters.jobId });
+    }
+
+    const applications = await query
+      .orderBy('status.name', 'ASC')
+      .addOrderBy('application.appliedAt', 'DESC')
+      .getMany();
+
+    const pipeline = {
+      pending: [] as Application[],
+      reviewed: [] as Application[],
+      interviewing: [] as Application[],
+      offered: [] as Application[],
+      rejected: [] as Application[],
+    };
+
+    for (const app of applications) {
+      const statusName = app.currentStatus.name.toLowerCase();
+      if (statusName === 'pending' || statusName === 'applied') {
+        pipeline.pending.push(app);
+      } else if (statusName === 'reviewed') {
+        pipeline.reviewed.push(app);
+      } else if (statusName === 'interviewing') {
+        pipeline.interviewing.push(app);
+      } else if (statusName === 'offered') {
+        pipeline.offered.push(app);
+      } else if (statusName === 'rejected') {
+        pipeline.rejected.push(app);
+      }
+    }
+
+    return pipeline;
   }
 
   async getEmployerInbox(
@@ -232,6 +283,44 @@ export class ApplicationsService {
       throw new NotFoundException('Application status not found');
     }
 
+    const isMovingToAccepted = this.isAcceptedStatusName(nextStatus.name);
+    const isAlreadyAccepted = this.isAcceptedStatusName(
+      application.currentStatus?.name,
+    );
+
+    if (isMovingToAccepted && !isAlreadyAccepted) {
+      const job = await this.jobRepository.findOne({
+        where: { id: application.job.id },
+      });
+
+      if (!job) {
+        throw new NotFoundException('Job not found');
+      }
+
+      if (job.numberOfOpenings !== null && job.numberOfOpenings !== undefined) {
+        if (job.numberOfOpenings <= 0) {
+          throw new ConflictException('No openings remaining for this job');
+        }
+        job.numberOfOpenings -= 1;
+        await this.jobRepository.save(job);
+      }
+    }
+
+    if (!isMovingToAccepted && isAlreadyAccepted) {
+      const job = await this.jobRepository.findOne({
+        where: { id: application.job.id },
+      });
+
+      if (!job) {
+        throw new NotFoundException('Job not found');
+      }
+
+      if (job.numberOfOpenings !== null && job.numberOfOpenings !== undefined) {
+        job.numberOfOpenings += 1;
+        await this.jobRepository.save(job);
+      }
+    }
+
     application.currentStatus = {
       id: dto.statusId,
     } as Application['currentStatus'];
@@ -293,6 +382,19 @@ export class ApplicationsService {
         'This job is no longer accepting applications',
       );
     }
+
+    if (
+      job.numberOfOpenings !== null &&
+      job.numberOfOpenings !== undefined &&
+      job.numberOfOpenings <= 0
+    ) {
+      throw new ForbiddenException('This job has no openings remaining');
+    }
+  }
+
+  private isAcceptedStatusName(statusName?: string | null) {
+    const normalized = (statusName ?? '').trim().toLowerCase();
+    return normalized === 'accepted' || normalized === 'hired';
   }
 
   private async getResumeOwnedByUser(resumeId: string, userId: string) {

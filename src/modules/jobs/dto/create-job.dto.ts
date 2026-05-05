@@ -10,15 +10,19 @@ import {
 
 export class CreateJobDto {
   @IsString()
-  @MaxLength(200)
+  @MaxLength(100)
   title: string;
 
   @IsString()
   description: string;
 
+  // @IsString()
+  // @IsOptional()
+  // requirements?: string;
+
   @IsString()
   @IsOptional()
-  requirements?: string;
+  summary?: string;
 
   @IsString()
   @IsOptional()
@@ -65,4 +69,8 @@ export class CreateJobDto {
   @IsUUID()
   @IsOptional()
   employerId?: string;
+
+  @IsNumber()
+  @Min(1)
+  numberOfOpenings: number;
 }

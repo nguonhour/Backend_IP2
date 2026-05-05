@@ -104,4 +104,11 @@ export class UserRepository {
   private hashToken(token: string): string {
     return Buffer.from(token).toString('base64url');
   }
+
+  async findByIdWithRole(id: string) {
+  return this.userRepository.findOne({
+    where: { id },
+    relations: ['role'],
+  });
+}
 }

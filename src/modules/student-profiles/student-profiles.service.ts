@@ -62,6 +62,10 @@ export class StudentProfilesService {
     return this.savedJobRepository
       .createQueryBuilder('saved_job')
       .innerJoinAndSelect('saved_job.job', 'job')
+      .leftJoinAndSelect('job.category', 'category')
+      .leftJoinAndSelect('job.jobType', 'jobType')
+      .leftJoinAndSelect('job.status', 'status')
+      .leftJoinAndSelect('job.employer', 'employer')
       .innerJoin('saved_job.student', 'student')
       .where('student.id = :studentId', { studentId: student.id })
       .orderBy('saved_job.id', 'DESC')

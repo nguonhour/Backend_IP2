@@ -12,6 +12,8 @@ import { GoogleUseCase } from './use-case/google.usecase';
 import { RefreshTokenUseCase } from './use-case/refresh-token.usecase';
 import { UserRepository } from './repositories/user.repository';
 import { TokenService } from './services/token.service';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { GetMeUseCase } from './use-case/getMe_usecase';
 
 @Module({
   imports: [TypeOrmModule.forFeature([User, Role, StudentProfile, Resume])],
@@ -24,7 +26,9 @@ import { TokenService } from './services/token.service';
     LoginUseCase,
     GoogleUseCase,
     RefreshTokenUseCase,
+    JwtAuthGuard,
+    GetMeUseCase,
   ],
-  exports: [AuthService],
+  exports: [JwtAuthGuard, AuthService],
 })
 export class AuthModule {}

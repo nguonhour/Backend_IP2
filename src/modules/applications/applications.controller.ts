@@ -13,14 +13,14 @@ import {
 import { ApplicationsService } from './applications.service';
 import { CreateApplicationDto } from './dto/create-application.dto';
 import { UpdateApplicationStatusDto } from './dto/update-application-status.dto';
-import { TestAuthGuard } from '../auth/test-auth.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
 
 @Controller('applications')
 export class ApplicationsController {
   constructor(private readonly applicationsService: ApplicationsService) {}
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Post()
   async applyToJob(
     @Request() req: AuthenticatedRequest,
@@ -29,7 +29,7 @@ export class ApplicationsController {
     return this.applicationsService.applyToJob(req.user.id, dto);
   }
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Get('my')
   async getMyApplications(
     @Request() req: AuthenticatedRequest,
@@ -38,7 +38,7 @@ export class ApplicationsController {
     return this.applicationsService.getMyApplications(req.user.id, status);
   }
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Get('employer/inbox')
   async getEmployerInbox(
     @Request() req: AuthenticatedRequest,
@@ -51,7 +51,7 @@ export class ApplicationsController {
     });
   }
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Get('job/:jobId')
   async getApplicantsForJob(
     @Request() req: AuthenticatedRequest,
@@ -65,7 +65,7 @@ export class ApplicationsController {
     );
   }
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Get('employer/:id')
   async getEmployerApplicationById(
     @Request() req: AuthenticatedRequest,
@@ -74,7 +74,7 @@ export class ApplicationsController {
     return this.applicationsService.getEmployerApplicationById(id, req.user.id);
   }
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Patch('employer/:id/status')
   async updateApplicationStatus(
     @Request() req: AuthenticatedRequest,
@@ -88,7 +88,7 @@ export class ApplicationsController {
     );
   }
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   async getApplicationById(
     @Request() req: AuthenticatedRequest,

@@ -10,6 +10,16 @@ export class MasterController {
     return this.masterService.getJobStatuses();
   }
 
+  @Get('job-categories')
+  async getJobCategories() {
+    return this.masterService.getJobCategories();
+  }
+
+  @Get('job-types')
+  async getJobTypes() {
+    return this.masterService.getJobTypes();
+  }
+
   @Get('application-statuses')
   async getApplicationStatuses() {
     return this.masterService.getApplicationStatuses();

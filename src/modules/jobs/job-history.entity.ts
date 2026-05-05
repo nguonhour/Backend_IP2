@@ -12,7 +12,9 @@ export class JobHistory {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => Job, (job) => job.history)
+  @ManyToOne(() => Job, (job) => job.history, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'job_id' })
   job: Job;
 
@@ -23,11 +25,11 @@ export class JobHistory {
   description: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
-  salaryMin: number;
+  salary_min: number;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
-  salaryMax: number;
+  salary_max: number;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-  updatedAt: Date;
+  updated_at: Date;
 }

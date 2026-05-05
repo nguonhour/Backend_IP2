@@ -5,10 +5,16 @@ import { JobStatus } from './job-status.entity';
 import { ApplicationStatus } from './application-status.entity';
 import { University } from './university.entity';
 import { Major } from './major.entity';
+import { JobCategory } from './job-category.entity';
+import { JobType } from './job-type.entity';
 
 @Injectable()
 export class MasterService {
   constructor(
+    @InjectRepository(JobCategory)
+    private jobCategoryRepository: Repository<JobCategory>,
+    @InjectRepository(JobType)
+    private jobTypeRepository: Repository<JobType>,
     @InjectRepository(JobStatus)
     private jobStatusRepository: Repository<JobStatus>,
     @InjectRepository(ApplicationStatus)
@@ -21,6 +27,22 @@ export class MasterService {
 
   async getJobStatuses() {
     return this.jobStatusRepository.find({
+      where: { isActive: true },
+      select: ['id', 'name'],
+      order: { name: 'ASC' },
+    });
+  }
+
+  async getJobCategories() {
+    return this.jobCategoryRepository.find({
+      where: { isActive: true },
+      select: ['id', 'name'],
+      order: { name: 'ASC' },
+    });
+  }
+
+  async getJobTypes() {
+    return this.jobTypeRepository.find({
       where: { isActive: true },
       select: ['id', 'name'],
       order: { name: 'ASC' },

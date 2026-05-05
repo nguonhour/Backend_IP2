@@ -25,6 +25,12 @@ export class AuthController {
     private readonly googleUseCase: GoogleUseCase,
   ) {}
 
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  getMe(@Req() req: AuthenticatedRequest) {
+    return this.getMeUseCase.execute(req.user.id);
+  }
+
   @Post('signup')
   signup(
     @Body() dto: RegisterStudentDto | RegisterEmployerDto,
