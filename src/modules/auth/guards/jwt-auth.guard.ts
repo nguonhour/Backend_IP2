@@ -23,7 +23,7 @@ export class JwtAuthGuard implements CanActivate {
     this.secret = process.env.JWT_SECRET || 'dev-only-secret';
   }
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
+  canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const authHeader = request.headers.authorization;
 
@@ -37,7 +37,7 @@ export class JwtAuthGuard implements CanActivate {
     const payload = this.verifyToken(token);
 
     request.user = { id: payload.sub };
-    return true;
+    return Promise.resolve(true);
   }
 
   private verifyToken(token: string): TokenPayload {
@@ -64,7 +64,7 @@ export class JwtAuthGuard implements CanActivate {
     try {
       payload = JSON.parse(
         Buffer.from(encodedPayload, 'base64url').toString('utf-8'),
-      );
+      ) as TokenPayload;
     } catch {
       throw new UnauthorizedException('Invalid token payload');
     }
