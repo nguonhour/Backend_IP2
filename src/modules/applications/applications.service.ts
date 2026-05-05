@@ -41,7 +41,7 @@ export class ApplicationsService {
     const existing = await this.applicationRepository
       .createQueryBuilder('application')
       .innerJoin('application.student', 'student')
-      .where('student.id = :studentId', { studentId: student.id })
+      .where('student.id = :studentId', { student: { id: student.id } })
       .andWhere('application.job = :jobId', { jobId: dto.jobId })
       .getOne();
 
@@ -111,7 +111,7 @@ export class ApplicationsService {
       .innerJoinAndSelect('application.currentStatus', 'status')
       .leftJoinAndSelect('application.resume', 'resume')
       .innerJoin('application.student', 'studentProfile')
-      .where('studentProfile.id = :studentId', { studentId: student.id });
+      .where('studentProfile.id = :studentId', { student: { id: student.id } });
 
     if (status) {
       query.andWhere('status.name = :status', { status });
@@ -133,7 +133,7 @@ export class ApplicationsService {
       .leftJoinAndSelect('student.major', 'major')
       .leftJoinAndSelect('application.resume', 'resume')
       .innerJoin('application.student', 'studentProfile')
-      .where('studentProfile.id = :studentId', { studentId: student.id })
+      .where('studentProfile.id = :studentId', { student: { id: student.id } })
       .andWhere('application.id = :id', { id })
       .getOne();
 
@@ -299,8 +299,7 @@ export class ApplicationsService {
     const student = await this.getStudentProfileByUserId(userId);
 
     const resume = await this.resumeRepository.findOne({
-      where: { id: resumeId, student: { id: student.id } },
-      relations: ['student'],
+      where: { id: resumeId, studentId: student.id },
     });
 
     if (!resume) {
@@ -314,8 +313,8 @@ export class ApplicationsService {
     const student = await this.getStudentProfileByUserId(userId);
 
     return this.resumeRepository.findOne({
-      where: { student: { id: student.id }, isDefault: true },
-      relations: ['student'],
+      where: { studentId: student.id, isDefault: true },
+      
       order: { createdAt: 'DESC' },
     });
   }

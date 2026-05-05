@@ -1,17 +1,28 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common/pipes/validation.pipe';
+import { initializeDatabase } from './database/init-hook';
+import { DataSource } from 'typeorm';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  const corsOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:5173')
+  // Initialize database constraints
+  try {
+    const dataSource = app.get(DataSource);
+    await initializeDatabase(dataSource);
+  } catch (err) {
+    console.error('Failed to initialize database:', err);
+  }
+
+  const corsOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:5174')
     .split(',')
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
 
   app.enableCors({
     origin: corsOrigins.length > 0 ? corsOrigins : true,
+    credentials: true,
   });
 
   app.useGlobalPipes(

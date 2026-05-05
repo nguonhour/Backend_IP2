@@ -3,8 +3,6 @@ import {
   Column,
   CreateDateColumn,
   PrimaryGeneratedColumn,
-  ManyToOne,
-  JoinColumn,
 } from 'typeorm';
 import { StudentProfile } from '../student-profiles/student-profile.entity';
 
@@ -13,12 +11,8 @@ export class Resume {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => StudentProfile, (student) => student.resumes, {
-    nullable: false,
-    onDelete: 'CASCADE',
-  })
-  @JoinColumn({ name: 'student_id' })
-  student: StudentProfile;
+  @Column({ name: 'student_id', type: 'uuid', nullable: true })
+  studentId: string | null;
 
   @Column({ name: 'file_url', type: 'varchar', nullable: false })
   fileUrl: string;

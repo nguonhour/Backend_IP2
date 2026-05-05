@@ -7,6 +7,9 @@ import { SearchHistory } from './search-history.entity';
 import { StudentSkill } from './student-skill.entity';
 import { SavedJob } from '../jobs/saved-job.entity';
 import { Job } from '../jobs/job.entity';
+import { Resume } from '../resumes/resume.entity';
+import { University } from '../../entities/master/university.entity';
+import { Major } from '../../entities/master/major.entity';
 
 @Module({
   imports: [
@@ -16,6 +19,9 @@ import { Job } from '../jobs/job.entity';
       StudentSkill,
       SavedJob,
       Job,
+      Resume,
+      University,
+      Major,
     ]),
   ],
   controllers: [StudentProfilesController],

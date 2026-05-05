@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JobStatus } from './job-status.entity';
 import { ApplicationStatus } from './application-status.entity';
+import { University } from './university.entity';
+import { Major } from './major.entity';
 
 @Injectable()
 export class MasterService {
@@ -11,6 +13,10 @@ export class MasterService {
     private jobStatusRepository: Repository<JobStatus>,
     @InjectRepository(ApplicationStatus)
     private applicationStatusRepository: Repository<ApplicationStatus>,
+    @InjectRepository(University)
+    private universityRepository: Repository<University>,
+    @InjectRepository(Major)
+    private majorRepository: Repository<Major>,
   ) {}
 
   async getJobStatuses() {
@@ -23,6 +29,22 @@ export class MasterService {
 
   async getApplicationStatuses() {
     return this.applicationStatusRepository.find({
+      where: { isActive: true },
+      select: ['id', 'name'],
+      order: { name: 'ASC' },
+    });
+  }
+
+  async getUniversities() {
+    return this.universityRepository.find({
+      where: { isActive: true },
+      select: ['id', 'name'],
+      order: { name: 'ASC' },
+    });
+  }
+
+  async getMajors() {
+    return this.majorRepository.find({
       where: { isActive: true },
       select: ['id', 'name'],
       order: { name: 'ASC' },

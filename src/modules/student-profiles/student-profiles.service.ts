@@ -4,10 +4,13 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { StudentProfile } from './student-profile.entity';
 import { SavedJob } from '../jobs/saved-job.entity';
 import { Job } from '../jobs/job.entity';
+import { Resume } from '../resumes/resume.entity';
+import { University } from '../../entities/master/university.entity';
+import { Major } from '../../entities/master/major.entity';
 
 @Injectable()
 export class StudentProfilesService {
@@ -18,6 +21,12 @@ export class StudentProfilesService {
     private savedJobRepository: Repository<SavedJob>,
     @InjectRepository(Job)
     private jobRepository: Repository<Job>,
+    @InjectRepository(Resume)
+    private resumeRepository: Repository<Resume>,
+    @InjectRepository(University)
+    private universityRepository: Repository<University>,
+    @InjectRepository(Major)
+    private majorRepository: Repository<Major>,
   ) {}
 
   async saveJob(userId: string, jobId: string) {
@@ -79,15 +88,155 @@ export class StudentProfilesService {
   }
 
   private async getStudentProfileByUserId(userId: string) {
-    const student = await this.studentProfileRepository.findOne({
-      where: { user: { id: userId } },
+    let student = await this.studentProfileRepository.findOne({
+      where: { externalUserId: userId },
       relations: ['user'],
     });
 
     if (!student) {
-      throw new NotFoundException('Student profile not found');
+      const orphanProfile = await this.studentProfileRepository.findOne({
+        where: { externalUserId: IsNull() },
+        order: { createdAt: 'DESC' },
+      });
+
+      if (orphanProfile) {
+        orphanProfile.externalUserId = userId;
+        student = await this.studentProfileRepository.save(orphanProfile);
+      }
+    }
+
+    // Auto-create profile if it doesn't exist (for CV saves without prior profile creation)
+    if (!student) {
+      try {
+        const profile = new StudentProfile();
+        profile.firstName = 'Student';
+        profile.lastName = '';
+        profile.user = null;
+        profile.externalUserId = userId;
+        
+        student = await this.studentProfileRepository.save(profile);
+        console.log('Auto-created StudentProfile:', student.id);
+      } catch (err) {
+        console.error('Failed to auto-create StudentProfile:', err);
+        throw new NotFoundException(`Student profile not found for user ${userId}`);
+      }
     }
 
     return student;
+  }
+
+  async getProfile(userId: string) {
+    const student = await this.getStudentProfileByUserId(userId);
+
+    const profile = await this.studentProfileRepository.findOne({
+      where: { id: student.id },
+      relations: ['user', 'university', 'major', 'studentSkills'],
+    });
+
+    if (!profile) {
+      return null;
+    }
+
+    const resumes = await this.resumeRepository.find({
+      where: { studentId: profile.id },
+      order: { createdAt: 'DESC' },
+    });
+
+    return {
+      ...profile,
+      resumes,
+    };
+  }
+
+  async updateProfile(userId: string, dto: Partial<{ firstName: string; lastName: string; avatarUrl: string; yearOfStudy: number; universityName: string; majorName: string; }>) {
+    const student = await this.getStudentProfileByUserId(userId);
+
+    if (dto.firstName !== undefined) student.firstName = dto.firstName;
+    if (dto.lastName !== undefined) student.lastName = dto.lastName;
+    if (dto.avatarUrl !== undefined) student.avatarUrl = dto.avatarUrl;
+    if (dto.yearOfStudy !== undefined) student.yearOfStudy = dto.yearOfStudy;
+
+    if (dto.universityName !== undefined) {
+      const normalizedUniversityName = dto.universityName.trim();
+      if (!normalizedUniversityName) {
+        student.university = null;
+      } else {
+        student.university = await this.findOrCreateUniversity(normalizedUniversityName);
+      }
+    }
+
+    if (dto.majorName !== undefined) {
+      const normalizedMajorName = dto.majorName.trim();
+      if (!normalizedMajorName) {
+        student.major = null;
+      } else {
+        student.major = await this.findOrCreateMajor(normalizedMajorName);
+      }
+    }
+
+    return this.studentProfileRepository.save(student);
+  }
+
+  private async findOrCreateUniversity(name: string): Promise<University> {
+    const existing = await this.universityRepository
+      .createQueryBuilder('university')
+      .where('LOWER(university.name) = LOWER(:name)', { name })
+      .getOne();
+
+    if (existing) {
+      if (!existing.isActive) {
+        existing.isActive = true;
+        return this.universityRepository.save(existing);
+      }
+      return existing;
+    }
+
+    const created = this.universityRepository.create({ name, isActive: true });
+    return this.universityRepository.save(created);
+  }
+
+  private async findOrCreateMajor(name: string): Promise<Major> {
+    const existing = await this.majorRepository
+      .createQueryBuilder('major')
+      .where('LOWER(major.name) = LOWER(:name)', { name })
+      .getOne();
+
+    if (existing) {
+      if (!existing.isActive) {
+        existing.isActive = true;
+        return this.majorRepository.save(existing);
+      }
+      return existing;
+    }
+
+    const created = this.majorRepository.create({ name, isActive: true });
+    return this.majorRepository.save(created);
+  }
+
+  async addResume(userId: string, fileUrl: string) {
+    const crypto = require('crypto');
+    const student = await this.getStudentProfileByUserId(userId);
+    console.log('Adding resume for student:', student.id);
+
+    // Mark any existing default resumes as non-default using QueryBuilder
+    await this.resumeRepository
+      .createQueryBuilder()
+      .update(Resume)
+      .set({ isDefault: false })
+      .where('student_id = :studentId', { studentId: student.id })
+      .andWhere('is_default = :isDefault', { isDefault: true })
+      .execute();
+
+    // Use raw query to insert resume directly, bypassing TypeORM FK issues
+    const resumeId = crypto.randomUUID ? crypto.randomUUID() : require('uuid').v4();
+    const now = new Date();
+    await this.resumeRepository.query(
+      `INSERT INTO resumes (id, file_url, is_default, created_at, student_id)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [resumeId, fileUrl, true, now, student.id]
+    );
+
+    // Return the created resume
+    return this.resumeRepository.findOne({ where: { id: resumeId } });
   }
 }

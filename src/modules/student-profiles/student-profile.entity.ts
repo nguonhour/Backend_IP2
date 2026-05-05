@@ -23,9 +23,12 @@ export class StudentProfile {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @OneToOne(() => User, { nullable: false, onDelete: 'CASCADE' })
+  @OneToOne(() => User, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: User | null;
+
+  @Column({ name: 'external_user_id', type: 'varchar', nullable: true, unique: true })
+  externalUserId: string | null;
 
   @Column({ name: 'first_name', type: 'varchar', nullable: false })
   firstName: string;
@@ -35,11 +38,11 @@ export class StudentProfile {
 
   @ManyToOne(() => University, { nullable: true })
   @JoinColumn({ name: 'university_id' })
-  university: University;
+  university: University | null;
 
   @ManyToOne(() => Major, { nullable: true })
   @JoinColumn({ name: 'major_id' })
-  major: Major;
+  major: Major | null;
 
   @Column({ name: 'year_of_study', type: 'int', nullable: true })
   yearOfStudy: number;
@@ -65,6 +68,4 @@ export class StudentProfile {
   @OneToMany(() => SearchHistory, (history) => history.student)
   searchHistory: SearchHistory[];
 
-  @OneToMany(() => Resume, (resume) => resume.student)
-  resumes: Resume[];
 }
