@@ -8,6 +8,8 @@ import {
   ParseUUIDPipe,
   UseGuards,
 } from '@nestjs/common';
+import { Body, Put } from '@nestjs/common';
+import { UpdateStudentDto } from './dto/update-student.dto';
 import { StudentProfilesService } from './student-profiles.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
@@ -33,7 +35,28 @@ export class StudentProfilesController {
     return this.studentProfilesService.getSavedJobs(req.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(TestAuthGuard)
+  @Get('me')
+  async getProfile(@Request() req: AuthenticatedRequest) {
+    return this.studentProfilesService.getProfile(req.user.id);
+  }
+
+  @UseGuards(TestAuthGuard)
+  @Put('me')
+  async updateProfile(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: UpdateStudentDto,
+  ) {
+    return this.studentProfilesService.updateProfile(req.user.id, dto);
+  }
+
+  @UseGuards(TestAuthGuard)
+  @Post('me/resumes')
+  async addResume(@Request() req: AuthenticatedRequest, @Body() body: { fileUrl: string }) {
+    return this.studentProfilesService.addResume(req.user.id, body.fileUrl);
+  }
+
+  @UseGuards(TestAuthGuard)
   @Delete('save-job/:jobId')
   async removeSavedJob(
     @Request() req: AuthenticatedRequest,

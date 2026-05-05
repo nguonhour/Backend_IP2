@@ -33,7 +33,7 @@ services:
       DB_USERNAME: ${DB_USERNAME:-root}
       DB_PASSWORD: ${DB_PASSWORD:-Hnh00900}
       DB_NAME: ${DB_NAME:-student_part_time}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5174}
     depends_on:
       db:
         condition: service_healthy

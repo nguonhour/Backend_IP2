@@ -15,6 +15,13 @@ type CreateUserInput = {
   role: string;
 };
 
+type CreateOAuthUserInput = {
+  email: string;
+  is_verified: boolean;
+  role: string;
+  authProvider: string;
+};
+
 @Injectable()
 export class UserRepository {
   constructor(
@@ -51,6 +58,27 @@ export class UserRepository {
     });
 
     const saved = await this.userRepository.save(user);
+    return { data: saved };
+  }
+
+  async createOAuthUser(input: CreateOAuthUserInput): Promise<RepoResult<User>> {
+    const role = await this.roleRepository.findOne({
+      where: { name: input.role.toUpperCase(), isActive: true },
+    });
+
+    if (!role) {
+      throw new NotFoundException('Role not found');
+    }
+
+    const user = this.userRepository.create({
+      email: input.email.toLowerCase(),
+      passwordHash: '',
+      isVerified: input.is_verified,
+      authProvider: input.authProvider,
+      role,
+    });
+
+    const saved = (await this.userRepository.save(user)) as User;
     return { data: saved };
   }
 

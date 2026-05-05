@@ -24,4 +24,14 @@ export class MasterController {
   async getApplicationStatuses() {
     return this.masterService.getApplicationStatuses();
   }
+
+  @Get('universities')
+  async getUniversities() {
+    return this.masterService.getUniversities();
+  }
+
+  @Get('majors')
+  async getMajors() {
+    return this.masterService.getMajors();
+  }
 }

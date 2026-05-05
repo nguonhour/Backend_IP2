@@ -1,4 +1,11 @@
-import { Body, Controller, Post, Res, Req, UseGuards, Get } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  Res,
+  Req,
+  UnauthorizedException,
+} from '@nestjs/common';
 import type { Response, Request } from 'express';
 import { RegisterEmployerDto } from '../dto/register-employer.dto';
 import { RegisterStudentDto } from '../dto/register-student.dto';
@@ -6,12 +13,8 @@ import { LoginDto } from '../dto/login.dto';
 import { SignupUseCase } from '../use-case/signup.usecase';
 import { LoginUseCase } from '../use-case/login.usecase';
 import { RefreshTokenUseCase } from '../use-case/refresh-token.usecase';
-import { GetMeUseCase } from '../use-case/getMe_usecase';
-import { JwtAuthGuard } from '../guards/jwt-auth.guard';
-
-interface AuthenticatedRequest extends Request {
-  user: { id: string };
-}
+import { GoogleAuthDto } from '../dto/google.dto';
+import { GoogleUseCase } from '../use-case/google.usecase';
 
 @Controller('auth')
 export class AuthController {
@@ -19,7 +22,7 @@ export class AuthController {
     private readonly signupUseCase: SignupUseCase,
     private readonly loginUseCase: LoginUseCase,
     private readonly refreshTokenUseCase: RefreshTokenUseCase,
-    private readonly getMeUseCase: GetMeUseCase,
+    private readonly googleUseCase: GoogleUseCase,
   ) {}
 
   @Get('me')
@@ -33,25 +36,13 @@ export class AuthController {
     @Body() dto: RegisterStudentDto | RegisterEmployerDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const isEmployer = dto.role.toUpperCase() === 'EMPLOYER';
-
-    if (isEmployer) {
-      const employerDto = dto as RegisterEmployerDto;
-      return this.signupUseCase.execute(
-        employerDto.email,
-        employerDto.password,
-        employerDto.role,
-        res,
-        {
-          companyName: employerDto.companyName,
-          contactNumber: employerDto.contactNumber,
-          position: employerDto.position,
-          companyWebsite: employerDto.companyWebsite,
-        },
-      );
-    }
-
-    return this.signupUseCase.execute(dto.email, dto.password, dto.role, res);
+    return this.signupUseCase.execute(
+      dto.email,
+      dto.password,
+      dto.role,
+      res,
+      dto as any,
+    );
   }
 
   @Post('login')
@@ -61,7 +52,33 @@ export class AuthController {
 
   @Post('refresh')
   refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const refreshToken = req.cookies.refresh_token;
+    const cookies =
+      (req.cookies as { refresh_token?: string } | undefined) ?? undefined;
+    const refreshToken = cookies?.refresh_token;
+
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token is missing');
+    }
+
     return this.refreshTokenUseCase.execute(refreshToken, res);
+  }
+
+  @Post('logout')
+  logout(@Res({ passthrough: true }) res: Response) {
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+
+    return { message: 'Logged out successfully' };
+  }
+
+  @Post('google')
+  google(
+    @Body() dto: GoogleAuthDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.googleUseCase.execute(dto.access_token, dto.role, res);
   }
 }
