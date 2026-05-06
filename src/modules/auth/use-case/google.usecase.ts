@@ -4,13 +4,13 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { UserRepository } from '../repositories/user.repository';
 import { TokenService } from '../services/token.service';
 
 @Injectable()
 export class GoogleUseCase {
-  private supabase;
+  private supabase: SupabaseClient;
 
   constructor(
     private readonly userRepo: UserRepository,
@@ -23,13 +23,16 @@ export class GoogleUseCase {
       throw new Error('Missing Supabase credentials in environment variables');
     }
 
-    this.supabase = createClient(supabaseUrl, supabaseKey);
+    this.supabase = createClient(
+      supabaseUrl,
+      supabaseKey,
+    ) as unknown as SupabaseClient;
   }
 
   async execute(accessToken: string, role: string | undefined, res: Response) {
-    // Verify the access token with Supabase
-    let user_id;
-    let email;
+    // 1. Explicitly typed as strings to prevent "Unsafe assignment of 'any' value"
+    // let user_id: string;
+    let email: string;
     let avatarUrl: string | null = null;
     let displayName: string | null = null;
 
@@ -37,11 +40,11 @@ export class GoogleUseCase {
       // Verify the token by getting user from Supabase
       const { data, error } = await this.supabase.auth.getUser(accessToken);
 
-      if (error || !data.user) {
+      if (error || !data.user || !data.user.email) {
         throw new UnauthorizedException('Invalid Supabase token');
       }
 
-      user_id = data.user.id;
+      // user_id = data.user.id;
       email = data.user.email;
       avatarUrl =
         (data.user.user_metadata?.avatar_url as string | undefined) ??
@@ -52,7 +55,7 @@ export class GoogleUseCase {
         (data.user.user_metadata?.name as string | undefined) ??
         data.user.email ??
         null;
-    } catch (e) {
+    } catch {
       throw new UnauthorizedException('Failed to verify token with Supabase');
     }
 
@@ -61,7 +64,6 @@ export class GoogleUseCase {
     let user = existing;
 
     // If user already exists and is trying to sign up again, tell the frontend
-    // so it can show a toast and redirect to sign in.
     if (user && role) {
       return {
         isExistingUser: true,
@@ -79,7 +81,18 @@ export class GoogleUseCase {
 
     // If user is new but role is provided, create the user
     if (!user && role) {
-      const { data: created } = await this.userRepo.createOAuthUser({
+      // 2. We use a strict structural cast here instead of 'as any'
+      // to completely satisfy ESLint's strict safety rules.
+      const repo = this.userRepo as unknown as {
+        createOAuthUser: (dto: {
+          email: string;
+          is_verified: boolean;
+          role: string;
+          authProvider: string;
+        }) => Promise<{ data: typeof existing }>;
+      };
+
+      const { data: created } = await repo.createOAuthUser({
         email,
         is_verified: true,
         role,

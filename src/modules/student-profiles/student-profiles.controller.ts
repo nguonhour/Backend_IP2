@@ -35,30 +35,33 @@ export class StudentProfilesController {
     return this.studentProfilesService.getSavedJobs(req.user.id);
   }
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Get('me')
-  async getProfile(@Request() req: AuthenticatedRequest) {
+  getProfile(@Request() req: AuthenticatedRequest) {
     return this.studentProfilesService.getProfile(req.user.id);
   }
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Put('me')
-  async updateProfile(
+  updateProfile(
     @Request() req: AuthenticatedRequest,
     @Body() dto: UpdateStudentDto,
   ) {
     return this.studentProfilesService.updateProfile(req.user.id, dto);
   }
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Post('me/resumes')
-  async addResume(@Request() req: AuthenticatedRequest, @Body() body: { fileUrl: string }) {
+  addResume(
+    @Request() req: AuthenticatedRequest,
+    @Body() body: { fileUrl: string },
+  ) {
     return this.studentProfilesService.addResume(req.user.id, body.fileUrl);
   }
 
-  @UseGuards(TestAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Delete('save-job/:jobId')
-  async removeSavedJob(
+  removeSavedJob(
     @Request() req: AuthenticatedRequest,
     @Param('jobId', ParseUUIDPipe) jobId: string,
   ) {
