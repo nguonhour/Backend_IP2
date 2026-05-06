@@ -24,8 +24,15 @@ export class LoginUseCase {
 
     // Verify password
     const hashedPassword = this.hashPassword(password);
-    if (user.passwordHash !== hashedPassword) {
+    const storedPassword = user.passwordHash ?? '';
+    const legacyPlainTextMatch = storedPassword === password;
+
+    if (storedPassword !== hashedPassword && !legacyPlainTextMatch) {
       throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (legacyPlainTextMatch) {
+      await this.userRepo.updatePasswordHash(user.id, hashedPassword);
     }
 
     // Generate tokens

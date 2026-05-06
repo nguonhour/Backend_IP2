@@ -61,7 +61,9 @@ export class UserRepository {
     return { data: saved };
   }
 
-  async createOAuthUser(input: CreateOAuthUserInput): Promise<RepoResult<User>> {
+  async createOAuthUser(
+    input: CreateOAuthUserInput,
+  ): Promise<RepoResult<User>> {
     const role = await this.roleRepository.findOne({
       where: { name: input.role.toUpperCase(), isActive: true },
     });
@@ -78,7 +80,8 @@ export class UserRepository {
       role,
     });
 
-    const saved = (await this.userRepository.save(user)) as User;
+    // const saved = (await this.userRepository.save(user)) as User;
+    const saved = await this.userRepository.save(user);
     return { data: saved };
   }
 
@@ -90,6 +93,13 @@ export class UserRepository {
       { id: userId },
       { refreshTokenHash: this.hashToken(refreshToken) },
     );
+  }
+
+  async updatePasswordHash(
+    userId: string,
+    passwordHash: string,
+  ): Promise<void> {
+    await this.userRepository.update({ id: userId }, { passwordHash });
   }
 
   async findByRefreshTokenHash(tokenHash: string): Promise<User | null> {
@@ -105,10 +115,10 @@ export class UserRepository {
     return Buffer.from(token).toString('base64url');
   }
 
-  async findByIdWithRole(id: string) {
-  return this.userRepository.findOne({
-    where: { id },
-    relations: ['role'],
-  });
-}
+  async findByIdWithRole(id: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { id },
+      relations: ['role'],
+    });
+  }
 }
