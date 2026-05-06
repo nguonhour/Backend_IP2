@@ -17,6 +17,7 @@ import { JobStatus } from '../../entities/master/job-status.entity';
 import { JobHistory } from './job-history.entity';
 import { JobSearchDto } from './dto/search-job.dto';
 import { Payment } from '../payments/payment.entity';
+import { StudentProfile } from '../student-profiles/student-profile.entity';
 
 const PUBLIC_JOB_STATUS_NAMES = ['published', 'active', 'open'];
 
@@ -37,6 +38,8 @@ export class JobsService {
     private jobHistoryRepository: Repository<JobHistory>,
     @InjectRepository(Payment)
     private paymentRepository: Repository<Payment>,
+    @InjectRepository(StudentProfile)
+    private studentProfileRepository: Repository<StudentProfile>,
   ) {}
 
   async getAllJobs() {
@@ -251,6 +254,120 @@ export class JobsService {
 
     await this.jobRepository.remove(job);
     return { message: 'Job deleted successfully' };
+  }
+  async getMatchBySkills(userId: string) {
+    const student = await this.studentProfileRepository.findOne({
+      where: { user: { id: userId } },
+      relations: ['studentSkills', 'studentSkills.skill'],
+    });
+
+    if (!student) throw new NotFoundException('Student profile not found');
+
+    const skillIds = student.studentSkills.map((s) => s.skill.id);
+    if (skillIds.length === 0) return [];
+
+    return this.jobRepository
+      .createQueryBuilder('job')
+      .leftJoinAndSelect('job.jobSkills', 'jobSkill')
+      .leftJoinAndSelect('jobSkill.skill', 'skill')
+      .leftJoinAndSelect('job.employer', 'employer')
+      .leftJoinAndSelect('job.status', 'status')
+      .leftJoinAndSelect('job.jobType', 'jobType')
+      .leftJoinAndSelect('job.category', 'category')
+      .where('LOWER(status.name) IN (:...visibleStatuses)', {
+        visibleStatuses: PUBLIC_JOB_STATUS_NAMES,
+      })
+      .andWhere('(job.deadline IS NULL OR job.deadline >= NOW())')
+      .andWhere('skill.id IN (:...skillIds)', { skillIds })
+      .orderBy('job.createdAt', 'DESC')
+      .getMany();
+  }
+
+  async getMatchByMajor(userId: string) {
+    const student = await this.studentProfileRepository.findOne({
+      where: { user: { id: userId } },
+      relations: ['major'],
+    });
+
+    if (!student) throw new NotFoundException('Student profile not found');
+    if (!student.major) return [];
+
+    return this.jobRepository
+      .createQueryBuilder('job')
+      .leftJoinAndSelect('job.category', 'category')
+      .leftJoinAndSelect('job.employer', 'employer')
+      .leftJoinAndSelect('job.status', 'status')
+      .leftJoinAndSelect('job.jobType', 'jobType')
+      .where('LOWER(status.name) IN (:...visibleStatuses)', {
+        visibleStatuses: PUBLIC_JOB_STATUS_NAMES,
+      })
+      .andWhere('(job.deadline IS NULL OR job.deadline >= NOW())')
+      .andWhere('LOWER(category.name) LIKE :major', {
+        major: `%${student.major.name.toLowerCase()}%`,
+      })
+      .orderBy('job.createdAt', 'DESC')
+      .getMany();
+  }
+
+  async getRecommendedJobs(userId: string) {
+    const student = await this.studentProfileRepository.findOne({
+      where: { user: { id: userId } },
+      relations: [
+        'studentSkills',
+        'studentSkills.skill',
+        'major',
+        'applications',
+        'applications.job',
+        'applications.job.category',
+        'savedJobs',
+        'savedJobs.job',
+        'savedJobs.job.category',
+      ],
+    });
+
+    if (!student) throw new NotFoundException('Student profile not found');
+
+    const categoryIds = new Set<string>();
+    student.applications?.forEach((a) => {
+      if (a.job?.category?.id) categoryIds.add(a.job.category.id);
+    });
+    student.savedJobs?.forEach((s) => {
+      if (s.job?.category?.id) categoryIds.add(s.job.category.id);
+    });
+
+    const skillIds = student.studentSkills?.map((s) => s.skill.id) ?? [];
+
+    if (categoryIds.size === 0 && skillIds.length === 0) {
+      return this.getAllJobs();
+    }
+
+    const qb = this.jobRepository
+      .createQueryBuilder('job')
+      .leftJoinAndSelect('job.category', 'category')
+      .leftJoinAndSelect('job.employer', 'employer')
+      .leftJoinAndSelect('job.status', 'status')
+      .leftJoinAndSelect('job.jobType', 'jobType')
+      .leftJoinAndSelect('job.jobSkills', 'jobSkill')
+      .leftJoinAndSelect('jobSkill.skill', 'skill')
+      .where('LOWER(status.name) IN (:...visibleStatuses)', {
+        visibleStatuses: PUBLIC_JOB_STATUS_NAMES,
+      })
+      .andWhere('(job.deadline IS NULL OR job.deadline >= NOW())');
+
+    if (categoryIds.size > 0 && skillIds.length > 0) {
+      qb.andWhere(
+        '(category.id IN (:...categoryIds) OR skill.id IN (:...skillIds))',
+        { categoryIds: [...categoryIds], skillIds },
+      );
+    } else if (categoryIds.size > 0) {
+      qb.andWhere('category.id IN (:...categoryIds)', {
+        categoryIds: [...categoryIds],
+      });
+    } else {
+      qb.andWhere('skill.id IN (:...skillIds)', { skillIds });
+    }
+
+    return qb.orderBy('job.createdAt', 'DESC').getMany();
   }
 
   private async getEmployerProfileByUserId(userId: string) {
