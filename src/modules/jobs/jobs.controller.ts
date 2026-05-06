@@ -47,6 +47,24 @@ export class JobsController {
     return this.jobsService.getMyPostedJobById(req.user.id, id);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('match/skills')
+  async getMatchBySkills(@Request() req: AuthenticatedRequest) {
+    return this.jobsService.getMatchBySkills(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('match/major')
+  async getMatchByMajor(@Request() req: AuthenticatedRequest) {
+    return this.jobsService.getMatchByMajor(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('recommended')
+  async getRecommendedJobs(@Request() req: AuthenticatedRequest) {
+    return this.jobsService.getRecommendedJobs(req.user.id);
+  }
+  // Public - Anyone can view job details
   @Get('search')
   @UsePipes(new ValidationPipe({ transform: true }))
   async searchJobs(@Query() query: JobSearchDto) {
