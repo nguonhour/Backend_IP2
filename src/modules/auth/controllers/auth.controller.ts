@@ -5,8 +5,8 @@ import {
   Res,
   Req,
   UnauthorizedException,
-  UseGuards,
   Get,
+  UseGuards,
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
 import { RegisterEmployerDto } from '../dto/register-employer.dto';
@@ -17,9 +17,33 @@ import { LoginUseCase } from '../use-case/login.usecase';
 import { RefreshTokenUseCase } from '../use-case/refresh-token.usecase';
 import { GoogleAuthDto } from '../dto/google.dto';
 import { GoogleUseCase } from '../use-case/google.usecase';
+import type { AuthenticatedRequest } from '../../../common/types/auth-request.type';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
-import type{ AuthenticatedRequest } from '../../../common/types/auth-request.type';
 import { GetMeUseCase } from '../use-case/getMe_usecase';
+
+type AuthUserResponse = {
+  id: string;
+  email: string;
+  role: string;
+};
+
+type AuthResponse = {
+  accessToken: string;
+  user: AuthUserResponse;
+};
+
+type StudentSignupData = {
+  name: string;
+  avatarUrl?: string;
+  cvUrl?: string;
+};
+
+type EmployerSignupData = {
+  name: string;
+  companyName: string;
+  position: string;
+  companyWebsite?: string;
+};
 
 @Controller('auth')
 export class AuthController {
@@ -34,23 +58,51 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   getMe(@Req() req: AuthenticatedRequest) {
-    return this.getMeUseCase.execute(req.user.id);
+    // return this.getMeUseCase.execute(req.user.id);
+    return { userId: req.user.id };
   }
 
   @Post('signup')
   signup(
     @Body() dto: RegisterStudentDto | RegisterEmployerDto,
     @Res({ passthrough: true }) res: Response,
-  ) {
+  ): Promise<AuthResponse> {
+    const additionalData: StudentSignupData | EmployerSignupData =
+      'companyName' in dto
+        ? this.buildEmployerSignupData(dto)
+        : this.buildStudentSignupData(dto);
+
     return this.signupUseCase.execute(
       dto.email,
       dto.password,
       dto.role,
       res,
-      dto as any,
+      additionalData,
     );
   }
 
+  private buildStudentSignupData(dto: {
+    name: string;
+    avatarUrl?: string;
+    cvUrl?: string;
+  }): StudentSignupData {
+    return {
+      name: dto.name,
+      avatarUrl: dto.avatarUrl,
+      cvUrl: dto.cvUrl,
+    };
+  }
+
+  private buildEmployerSignupData(
+    dto: RegisterEmployerDto,
+  ): EmployerSignupData {
+    return {
+      name: dto.name,
+      companyName: dto.companyName,
+      position: dto.position,
+      companyWebsite: dto.companyWebsite,
+    };
+  }
   @Post('login')
   login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     return this.loginUseCase.execute(dto.email, dto.password, res);

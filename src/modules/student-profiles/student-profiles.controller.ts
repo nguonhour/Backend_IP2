@@ -20,11 +20,6 @@ export class StudentProfilesController {
     private readonly studentProfilesService: StudentProfilesService,
   ) {}
 
-  @UseGuards(JwtAuthGuard)
-  @Get('me')
-  async getProfile(@Request() req: AuthenticatedRequest) {
-    return this.studentProfilesService.getProfile(req.user.id);
-  }
 
   @UseGuards(JwtAuthGuard)
   @Post('save-job/:jobId')
@@ -41,15 +36,15 @@ export class StudentProfilesController {
     return this.studentProfilesService.getSavedJobs(req.user.id);
   }
 
-  // @UseGuards(TestAuthGuard)
-  // @Get('me')
-  // async getProfile(@Request() req: AuthenticatedRequest) {
-  //   return this.studentProfilesService.getProfile(req.user.id);
-  // }
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  getProfile(@Request() req: AuthenticatedRequest) {
+    return this.studentProfilesService.getProfile(req.user.id);
+  }
 
   @UseGuards(JwtAuthGuard)
   @Put('me')
-  async updateProfile(
+  updateProfile(
     @Request() req: AuthenticatedRequest,
     @Body() dto: UpdateStudentDto,
   ) {
@@ -58,13 +53,16 @@ export class StudentProfilesController {
 
   @UseGuards(JwtAuthGuard)
   @Post('me/resumes')
-  async addResume(@Request() req: AuthenticatedRequest, @Body() body: { fileUrl: string }) {
+  addResume(
+    @Request() req: AuthenticatedRequest,
+    @Body() body: { fileUrl: string },
+  ) {
     return this.studentProfilesService.addResume(req.user.id, body.fileUrl);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete('save-job/:jobId')
-  async removeSavedJob(
+  removeSavedJob(
     @Request() req: AuthenticatedRequest,
     @Param('jobId', ParseUUIDPipe) jobId: string,
   ) {
