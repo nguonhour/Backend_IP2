@@ -1,6 +1,7 @@
 // src/database/seeding/seeders/02-users.seeder.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { createHash } from 'crypto';
 import { Repository } from 'typeorm';
 import { Seeder } from '../seed.interface';
 import { User } from '../../../modules/users/user.entity';
@@ -68,7 +69,7 @@ export class UsersSeeder implements Seeder {
     if (!existingAdmin) {
       const adminUser = this.userRepository.create({
         email: adminEmail,
-        passwordHash: 'Password123!', // Remember to hash this if your entity doesn't do it automatically!
+        passwordHash: this.hashPassword('Password123!'),
         role: adminRole, // Attach the relation
       });
 
@@ -81,7 +82,7 @@ export class UsersSeeder implements Seeder {
     if (!existingEmployer) {
       const employerUser = this.userRepository.create({
         email: employerEmail,
-        passwordHash: 'Password123!',
+        passwordHash: this.hashPassword('Password123!'),
         role: employerRole,
       });
 
@@ -94,7 +95,7 @@ export class UsersSeeder implements Seeder {
     if (!existingStudent) {
       const studentUser = this.userRepository.create({
         email: studentEmail,
-        passwordHash: 'Password123!',
+        passwordHash: this.hashPassword('Password123!'),
         role: studentRole,
       });
 
@@ -103,5 +104,9 @@ export class UsersSeeder implements Seeder {
     } else {
       this.logger.debug(`Student user already exists. Skipping.`);
     }
+  }
+
+  private hashPassword(password: string): string {
+    return createHash('sha256').update(password).digest('hex');
   }
 }
