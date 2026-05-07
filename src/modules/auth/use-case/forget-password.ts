@@ -4,7 +4,7 @@ import { UserRepository } from '../repositories/user.repository';
 
 @Injectable()
 export class ForgetPasswordDto {
-  // constructor(private readonly userRepo: UserRepository) {}
+  constructor(private readonly userRepo: UserRepository) {}
 
   async execute(email: string, res: Response) {
     // find user by email
