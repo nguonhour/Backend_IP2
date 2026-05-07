@@ -7,6 +7,8 @@ import {
   Request,
   ParseUUIDPipe,
   UseGuards,
+  UseInterceptors,
+  ClassSerializerInterceptor,
 } from '@nestjs/common';
 import { Body, Put } from '@nestjs/common';
 import { UpdateStudentDto } from './dto/update-student.dto';
@@ -14,6 +16,7 @@ import { StudentProfilesService } from './student-profiles.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
 
+@UseInterceptors(ClassSerializerInterceptor)
 @Controller('students')
 export class StudentProfilesController {
   constructor(
