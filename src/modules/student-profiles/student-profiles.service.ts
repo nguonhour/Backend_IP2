@@ -11,6 +11,7 @@ import { Job } from '../jobs/job.entity';
 import { Resume } from '../resumes/resume.entity';
 import { University } from '../../entities/master/university.entity';
 import { Major } from '../../entities/master/major.entity';
+import { User } from '../users/user.entity';
 
 @Injectable()
 export class StudentProfilesService {
@@ -27,6 +28,8 @@ export class StudentProfilesService {
     private universityRepository: Repository<University>,
     @InjectRepository(Major)
     private majorRepository: Repository<Major>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
   ) {}
 
   async saveJob(userId: string, jobId: string): Promise<SavedJob> {
@@ -94,32 +97,26 @@ export class StudentProfilesService {
     return { message: 'Job removed from saved list' };
   }
 
+
   private async getStudentProfileByUserId(userId: string) {
     let student = await this.studentProfileRepository.findOne({
-      where: { externalUserId: userId },
+      where: { user: { id: userId } },
       relations: ['user'],
     });
-
-    if (!student) {
-      const orphanProfile = await this.studentProfileRepository.findOne({
-        where: { externalUserId: IsNull() },
-        order: { createdAt: 'DESC' },
-      });
-
-      if (orphanProfile) {
-        orphanProfile.externalUserId = userId;
-        student = await this.studentProfileRepository.save(orphanProfile);
-      }
-    }
 
     // Auto-create profile if it doesn't exist (for CV saves without prior profile creation)
     if (!student) {
       try {
+        const user = await this.userRepository.findOne({ where: { id: userId } });
+        if (!user) {
+          throw new NotFoundException(`User not found for id ${userId}`);
+        }
+
         const profile = new StudentProfile();
         profile.firstName = 'Student';
         profile.lastName = '';
-        profile.user = null;
-        profile.externalUserId = userId;
+        profile.user = user;
+        
         student = await this.studentProfileRepository.save(profile);
         console.log('Auto-created StudentProfile:', student.id);
       } catch (err) {
@@ -141,7 +138,17 @@ export class StudentProfilesService {
       relations: ['user', 'university', 'major', 'studentSkills'],
     });
 
-    return profile || null;
+    if (!profile) {
+      return null;
+    }
+
+    const resumes = await this.resumeRepository.find({
+      where: { studentId: profile.id },
+      order: { createdAt: 'DESC' },
+    });
+
+    (profile as StudentProfile & { resumes?: Resume[] }).resumes = resumes;
+    return profile;
   }
 
   async updateProfile(

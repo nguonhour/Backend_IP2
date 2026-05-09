@@ -10,6 +10,7 @@ import { Job } from '../jobs/job.entity';
 import { Resume } from '../resumes/resume.entity';
 import { University } from '../../entities/master/university.entity';
 import { Major } from '../../entities/master/major.entity';
+import { User } from '../users/user.entity';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { Major } from '../../entities/master/major.entity';
       Resume,
       University,
       Major,
+      User,
     ]),
   ],
   controllers: [StudentProfilesController],

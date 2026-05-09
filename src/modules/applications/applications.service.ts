@@ -14,6 +14,7 @@ import { CreateApplicationDto } from './dto/create-application.dto';
 import { ApplicationStatusHistory } from './application-status-history.entity';
 import { UpdateApplicationStatusDto } from './dto/update-application-status.dto';
 import { Resume } from '../resumes/resume.entity';
+import { EmployerApplicationHistoryDto } from './dto/employer-application-history.dto';
 
 const INITIAL_APPLICATION_STATUS_NAMES = ['pending', 'applied'];
 
@@ -229,6 +230,45 @@ export class ApplicationsService {
     await this.ensureEmployerOwnsJob(jobId, userId);
 
     return this.getEmployerInbox(userId, { jobId, status });
+  }
+
+  async getEmployerApplicationHistory(
+    userId: string,
+    filters: EmployerApplicationHistoryDto,
+  ) {
+    const query = this.applicationStatusHistoryRepository
+      .createQueryBuilder('history')
+      .innerJoinAndSelect('history.application', 'application')
+      .innerJoinAndSelect('history.status', 'status')
+      .leftJoinAndSelect('history.changedBy', 'changedBy')
+      .innerJoin('application.job', 'job')
+      .innerJoin('job.employer', 'employer')
+      .innerJoin('employer.user', 'employerUser')
+      .where('employerUser.id = :userId', { userId });
+
+    if (filters.jobId) {
+      query.andWhere('job.id = :jobId', { jobId: filters.jobId });
+    }
+
+    if (filters.applicationId) {
+      query.andWhere('application.id = :applicationId', {
+        applicationId: filters.applicationId,
+      });
+    }
+
+    if (filters.startDate) {
+      query.andWhere('history.changedAt >= :startDate', {
+        startDate: filters.startDate,
+      });
+    }
+
+    if (filters.endDate) {
+      query.andWhere('history.changedAt <= :endDate', {
+        endDate: filters.endDate,
+      });
+    }
+
+    return query.orderBy('history.changedAt', 'DESC').getMany();
   }
 
   async getEmployerApplicationById(id: string, userId: string) {
