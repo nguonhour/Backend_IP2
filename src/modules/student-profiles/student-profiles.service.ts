@@ -32,7 +32,7 @@ export class StudentProfilesService {
     private userRepository: Repository<User>,
   ) {}
 
-  async saveJob(userId: string, jobId: string) {
+  async saveJob(userId: string, jobId: string): Promise<SavedJob> {
     const student = await this.getStudentProfileByUserId(userId);
 
     const existing = await this.savedJobRepository
@@ -59,7 +59,7 @@ export class StudentProfilesService {
     return this.savedJobRepository.save(savedJob);
   }
 
-  async getSavedJobs(userId: string) {
+  async getSavedJobs(userId: string): Promise<Job[]> {
     const student = await this.getStudentProfileByUserId(userId);
 
     return this.savedJobRepository
@@ -76,7 +76,10 @@ export class StudentProfilesService {
       .then((results) => results.map((r) => r.job));
   }
 
-  async removeSavedJob(userId: string, jobId: string) {
+  async removeSavedJob(
+    userId: string,
+    jobId: string,
+  ): Promise<{ message: string }> {
     const student = await this.getStudentProfileByUserId(userId);
 
     const savedJob = await this.savedJobRepository
@@ -118,14 +121,16 @@ export class StudentProfilesService {
         console.log('Auto-created StudentProfile:', student.id);
       } catch (err) {
         console.error('Failed to auto-create StudentProfile:', err);
-        throw new NotFoundException(`Student profile not found for user ${userId}`);
+        throw new NotFoundException(
+          `Student profile not found for user ${userId}`,
+        );
       }
     }
 
     return student;
   }
 
-  async getProfile(userId: string) {
+  async getProfile(userId: string): Promise<StudentProfile | null> {
     const student = await this.getStudentProfileByUserId(userId);
 
     const profile = await this.studentProfileRepository.findOne({
@@ -146,7 +151,17 @@ export class StudentProfilesService {
     return profile;
   }
 
-  async updateProfile(userId: string, dto: Partial<{ firstName: string; lastName: string; avatarUrl: string; yearOfStudy: number; universityName: string; majorName: string; }>) {
+  async updateProfile(
+    userId: string,
+    dto: Partial<{
+      firstName: string;
+      lastName: string;
+      avatarUrl: string;
+      yearOfStudy: number;
+      universityName: string;
+      majorName: string;
+    }>,
+  ): Promise<StudentProfile> {
     const student = await this.getStudentProfileByUserId(userId);
 
     if (dto.firstName !== undefined) student.firstName = dto.firstName;
@@ -159,7 +174,9 @@ export class StudentProfilesService {
       if (!normalizedUniversityName) {
         student.university = null;
       } else {
-        student.university = await this.findOrCreateUniversity(normalizedUniversityName);
+        student.university = await this.findOrCreateUniversity(
+          normalizedUniversityName,
+        );
       }
     }
 
@@ -211,8 +228,7 @@ export class StudentProfilesService {
     return this.majorRepository.save(created);
   }
 
-  async addResume(userId: string, fileUrl: string) {
-    const crypto = require('crypto');
+  async addResume(userId: string, fileUrl: string): Promise<Resume> {
     const student = await this.getStudentProfileByUserId(userId);
     console.log('Adding resume for student:', student.id);
 
@@ -225,16 +241,13 @@ export class StudentProfilesService {
       .andWhere('is_default = :isDefault', { isDefault: true })
       .execute();
 
-    // Use raw query to insert resume directly, bypassing TypeORM FK issues
-    const resumeId = crypto.randomUUID ? crypto.randomUUID() : require('uuid').v4();
-    const now = new Date();
-    await this.resumeRepository.query(
-      `INSERT INTO resumes (id, file_url, is_default, created_at, student_id)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [resumeId, fileUrl, true, now, student.id]
-    );
+    // Create and save the new resume
+    const resume = this.resumeRepository.create({
+      fileUrl,
+      isDefault: true,
+      studentId: student.id,
+    });
 
-    // Return the created resume
-    return this.resumeRepository.findOne({ where: { id: resumeId } });
+    return this.resumeRepository.save(resume);
   }
 }
