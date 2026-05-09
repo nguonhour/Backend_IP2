@@ -9,10 +9,13 @@ import {
   Query,
   ParseUUIDPipe,
   UseGuards,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { ApplicationsService } from './applications.service';
 import { CreateApplicationDto } from './dto/create-application.dto';
 import { UpdateApplicationStatusDto } from './dto/update-application-status.dto';
+import { EmployerApplicationHistoryDto } from './dto/employer-application-history.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
 
@@ -49,6 +52,19 @@ export class ApplicationsController {
       jobId,
       status,
     });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('employer/history')
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async getEmployerApplicationHistory(
+    @Request() req: AuthenticatedRequest,
+    @Query() query: EmployerApplicationHistoryDto,
+  ) {
+    return this.applicationsService.getEmployerApplicationHistory(
+      req.user.id,
+      query,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
