@@ -72,5 +72,4 @@ export class UpdateJobDto {
   @Min(1)
   @IsOptional()
   numberOfOpenings?: number;
-
 }

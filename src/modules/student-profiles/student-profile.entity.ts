@@ -27,7 +27,12 @@ export class StudentProfile {
   @JoinColumn({ name: 'user_id' })
   user: User | null;
 
-  @Column({ name: 'external_user_id', type: 'varchar', nullable: true, unique: true })
+  @Column({
+    name: 'external_user_id',
+    type: 'varchar',
+    nullable: true,
+    unique: true,
+  })
   externalUserId: string | null;
 
   @Column({ name: 'first_name', type: 'varchar', nullable: false })
@@ -67,5 +72,4 @@ export class StudentProfile {
 
   @OneToMany(() => SearchHistory, (history) => history.student)
   searchHistory: SearchHistory[];
-
 }
