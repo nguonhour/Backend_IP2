@@ -1,12 +1,17 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common/pipes/validation.pipe';
+import { ClassSerializerInterceptor } from '@nestjs/common';
 import { initializeDatabase } from './database/init-hook';
 import { DataSource } from 'typeorm';
 import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)))
+
+  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)))
 
   // Initialize database constraints
   try {

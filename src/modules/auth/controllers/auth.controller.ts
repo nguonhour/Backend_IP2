@@ -19,6 +19,7 @@ import { GoogleAuthDto } from '../dto/google.dto';
 import { GoogleUseCase } from '../use-case/google.usecase';
 import type { AuthenticatedRequest } from '../../../common/types/auth-request.type';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { GetMeUseCase } from '../use-case/getMe_usecase';
 
 type AuthUserResponse = {
   id: string;
@@ -51,6 +52,7 @@ export class AuthController {
     private readonly loginUseCase: LoginUseCase,
     private readonly refreshTokenUseCase: RefreshTokenUseCase,
     private readonly googleUseCase: GoogleUseCase,
+    private readonly getMeUseCase: GetMeUseCase,
   ) {}
 
   @Get('me')
