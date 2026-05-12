@@ -105,6 +105,18 @@ export class ApplicationsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get(':id/history')
+  async getStudentApplicationHistory(
+    @Request() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.applicationsService.getStudentApplicationHistory(
+      id,
+      req.user.id,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   async getApplicationById(
     @Request() req: AuthenticatedRequest,
