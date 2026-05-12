@@ -24,7 +24,7 @@ services:
     container_name: project_ip2_backend
     environment:
       NODE_ENV: production
-      PORT: ${PORT:-3211}
+      PORT: 3211:3001
       DATABASE_URL: ${DATABASE_URL}
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_KEY: ${SUPABASE_KEY}
