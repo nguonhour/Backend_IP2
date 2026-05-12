@@ -3,6 +3,18 @@ import { DataSource } from 'typeorm';
 export async function initializeDatabase(dataSource: DataSource) {
   try {
     await dataSource.query(
+      `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS latitude numeric(10, 7)`,
+    );
+    await dataSource.query(
+      `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS longitude numeric(10, 7)`,
+    );
+    console.log('[InitDB] Ensured latitude/longitude columns exist on jobs');
+  } catch (err) {
+    console.error('[InitDB] Error ensuring jobs map columns:', err);
+  }
+
+  try {
+    await dataSource.query(
       `ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS external_user_id varchar`,
     );
     await dataSource.query(

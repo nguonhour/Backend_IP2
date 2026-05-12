@@ -5,6 +5,7 @@ import {
   IsDateString,
   IsUUID,
   Min,
+  Max,
   MaxLength,
 } from 'class-validator';
 
@@ -37,6 +38,18 @@ export class UpdateJobDto {
   @IsString()
   @IsOptional()
   location?: string;
+
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  @IsOptional()
+  latitude?: number;
+
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  @IsOptional()
+  longitude?: number;
 
   @IsNumber()
   @Min(0)
