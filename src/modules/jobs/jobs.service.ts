@@ -165,6 +165,8 @@ export class JobsService {
       benefits: dto.benefits ?? job.benefits,
       imageUrl: dto.imageUrl ?? job.imageUrl,
       location: dto.location ?? job.location,
+      latitude: dto.latitude ?? job.latitude,
+      longitude: dto.longitude ?? job.longitude,
       salaryMin: dto.salaryMin ?? job.salaryMin,
       salaryMax: dto.salaryMax ?? job.salaryMax,
       currency: dto.currency ?? job.currency,

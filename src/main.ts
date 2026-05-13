@@ -21,14 +21,23 @@ async function bootstrap() {
     console.error('Failed to initialize database:', err);
   }
 
-  const corsOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:5174')
+  const corsOrigins = (process.env.CORS_ORIGIN ?? '*')
     .split(',')
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
 
   app.enableCors({
-    origin: corsOrigins.length > 0 ? corsOrigins : true,
+    origin: (requestOrigin, callback) => {
+      if (!requestOrigin) return callback(null, true);
+      if (corsOrigins.includes('*') || corsOrigins.includes(requestOrigin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    optionsSuccessStatus: 204,
   });
 
   app.useGlobalPipes(
