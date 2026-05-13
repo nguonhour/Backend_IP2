@@ -14,7 +14,7 @@ export class Skill {
   isActive: boolean;
 
   @Column({
-    name: 'created_at',
+    name: 'createdAt',
     type: 'timestamp',
     default: () => 'CURRENT_TIMESTAMP',
   })

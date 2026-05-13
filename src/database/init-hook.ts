@@ -27,6 +27,30 @@ export async function initializeDatabase(dataSource: DataSource) {
     console.error('[InitDB] Error ensuring external_user_id column:', err);
   }
 
+  // try {
+  //   await dataSource.query(
+  //     `ALTER TABLE m_skills ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true`,
+  //   );
+  //   await dataSource.query(
+  //     `ALTER TABLE m_skills ADD COLUMN IF NOT EXISTS created_at timestamp DEFAULT CURRENT_TIMESTAMP`,
+  //   );
+  //   console.log('[InitDB] Ensured is_active column exists on m_skills');
+  // } catch (err) {
+  //   console.error('[InitDB] Error ensuring is_active column on m_skills:', err);
+  // }
+
+  try {
+    await dataSource.query(
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_token_hash varchar`,
+    );
+    await dataSource.query(
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_expires_at timestamp`,
+    );
+    console.log('[InitDB] Ensured email verification columns exist on users');
+  } catch (err) {
+    console.error('[InitDB] Error ensuring email verification columns:', err);
+  }
+
   try {
     // Drop the bad FK constraint on resumes table that points to users instead of student_profiles
     await dataSource.query(
