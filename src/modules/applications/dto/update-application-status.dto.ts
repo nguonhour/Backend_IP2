@@ -4,5 +4,5 @@ export class UpdateApplicationStatusDto {
   @IsUUID()
   statusId: string;
   @IsString()
-  statusCode!: string 
+  statusCode!: string;
 }

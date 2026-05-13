@@ -16,7 +16,13 @@ export class ApplicationStatusesSeeder implements Seeder {
   async run(): Promise<void> {
     this.logger.log('Seeding application statuses...');
 
-    const statuses = ['Pending', 'Reviewed', 'Interviewing', 'Offered', 'Rejected'];
+    const statuses = [
+      'Pending',
+      'Reviewed',
+      'Interviewing',
+      'Offered',
+      'Rejected',
+    ];
 
     for (const name of statuses) {
       const existing = await this.applicationStatusRepository.findOne({

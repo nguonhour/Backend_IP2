@@ -144,10 +144,7 @@ export class ApplicationsService {
     return application;
   }
 
-  async getCandidatePipeline(
-    userId: string,
-    filters?: { jobId?: string },
-  ) {
+  async getCandidatePipeline(userId: string, filters?: { jobId?: string }) {
     const query = this.applicationRepository
       .createQueryBuilder('application')
       .innerJoinAndSelect('application.job', 'job')
@@ -456,7 +453,7 @@ export class ApplicationsService {
 
     return this.resumeRepository.findOne({
       where: { studentId: student.id, isDefault: true },
-      
+
       order: { createdAt: 'DESC' },
     });
   }

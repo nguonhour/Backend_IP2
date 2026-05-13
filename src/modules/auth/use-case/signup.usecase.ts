@@ -49,11 +49,7 @@ export class SignupUseCase {
     }
 
     // If student signup includes profile data, create initial StudentProfile and Resume
-    if (
-      role === 'student' &&
-      additionalData &&
-      this.studentProfileRepository
-    ) {
+    if (role === 'student' && additionalData && this.studentProfileRepository) {
       const displayName = (additionalData.name ?? '').trim();
       const [firstName, ...rest] = displayName.split(' ');
       const lastName = rest.join(' ') || '';
