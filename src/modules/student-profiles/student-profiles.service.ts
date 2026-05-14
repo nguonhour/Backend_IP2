@@ -12,6 +12,12 @@ import { Resume } from '../resumes/resume.entity';
 import { University } from '../../entities/master/university.entity';
 import { Major } from '../../entities/master/major.entity';
 import { User } from '../users/user.entity';
+import { Skill } from '../../entities/master';
+import { Industry } from '../../entities/master/industry.entity';
+import { AddStudentSkillDto } from './dto/add-student-skill.dto';
+import { StudentSkill } from './student-skill.entity';
+import { AddStudentIndustryDto } from './dto/add-student-industry.dto';
+import { StudentIndustry } from './student-industry.entity';
 
 @Injectable()
 export class StudentProfilesService {
@@ -30,6 +36,14 @@ export class StudentProfilesService {
     private majorRepository: Repository<Major>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(Skill)
+    private skillRepository: Repository<Skill>,
+    @InjectRepository(StudentSkill)
+    private studentSkillRepository: Repository<StudentSkill>,
+    @InjectRepository(Industry)
+    private industryRepository: Repository<Industry>,
+    @InjectRepository(StudentIndustry)
+    private studentIndustryRepository: Repository<StudentIndustry>
   ) {}
 
   async saveJob(userId: string, jobId: string): Promise<SavedJob> {
@@ -135,7 +149,7 @@ export class StudentProfilesService {
 
     const profile = await this.studentProfileRepository.findOne({
       where: { id: student.id },
-      relations: ['user', 'university', 'major', 'studentSkills'],
+      relations: ['user', 'university', 'major', 'studentSkills', 'studentIndustries'],
     });
 
     if (!profile) {
@@ -249,5 +263,119 @@ export class StudentProfilesService {
     });
 
     return this.resumeRepository.save(resume);
+  }
+
+
+  async addSkills(userId: string, dto: AddStudentSkillDto) {
+    const student = await this.getStudentProfileByUserId(userId);
+    if(!student) {
+      throw new NotFoundException('Student profile not found');
+    }
+
+    const normalized = dto.skills
+      .map((skill) => skill.trim())
+      .filter((skill) => skill.length > 0)
+
+    if (normalized.length === 0) {
+      return { message: 'No skills provided' }
+    }
+
+    const existingSkills = await this.skillRepository
+      .createQueryBuilder('skill')
+      .where('LOWER(skill.name) IN (:...names)', {
+        names: normalized.map((name) => name.toLowerCase()),
+      })
+      .getMany();
+
+    const existingNames = new Set(existingSkills.map((s) => s.name.toLowerCase()));
+    const newSkills = normalized
+      .filter((name) => !existingNames.has(name.toLowerCase()))
+      .map((name) => this.skillRepository.create({ name }));
+
+    const createdSkills = newSkills.length > 0
+      ? await this.skillRepository.save(newSkills)
+      : [];
+
+    const allSkills = [...existingSkills, ...createdSkills];
+
+    const existingStudentSkills = await this.studentSkillRepository.find({
+      where: { studentId: student.id },
+    });
+
+    const existingSkillIds = new Set(existingStudentSkills.map((s) => s.skillId));
+
+    const toInsert = allSkills
+      .filter((skill) => !existingSkillIds.has(skill.id))
+      .map((skill) =>
+        this.studentSkillRepository.create({
+          studentId: student.id,
+          skillId: skill.id,
+        }),
+      );
+
+    if (toInsert.length > 0) {
+      await this.studentSkillRepository.save(toInsert);
+    }
+
+    return { message: 'Skills updated', added: toInsert.length };
+
+  }
+
+  async addIndustries(userId: string, dto: AddStudentIndustryDto) {
+    const student = await this.getStudentProfileByUserId(userId);
+    if (!student) {
+      throw new NotFoundException('Student profile not found');
+    }
+
+    const normalized = dto.industries
+      .map((industry) => industry.trim())
+      .filter((industry) => industry.length > 0);
+
+    if (normalized.length === 0) {
+      return { message: 'No industries provided' };
+    }
+
+    const existingIndustries = await this.industryRepository
+      .createQueryBuilder('industry')
+      .where('LOWER(industry.name) IN (:...names)', {
+        names: normalized.map((name) => name.toLowerCase()),
+      })
+      .getMany();
+
+    const existingNames = new Set(
+      existingIndustries.map((i) => i.name.toLowerCase()),
+    );
+    const newIndustries = normalized
+      .filter((name) => !existingNames.has(name.toLowerCase()))
+      .map((name) => this.industryRepository.create({ name }));
+
+    const createdIndustries = newIndustries.length > 0
+      ? await this.industryRepository.save(newIndustries)
+      : [];
+
+    const allIndustries = [...existingIndustries, ...createdIndustries];
+
+    const existingStudentIndustries = await this.studentIndustryRepository.find({
+      where: { studentId: student.id },
+    });
+
+    const existingIndustryIds = new Set(
+      existingStudentIndustries.map((i) => i.industryId),
+    );
+
+    const toInsert = allIndustries
+      .filter((industry) => !existingIndustryIds.has(industry.id))
+      .map((industry) =>
+        this.studentIndustryRepository.create({
+          studentId: student.id,
+          industryId: industry.id,
+        }),
+      );
+
+    if (toInsert.length > 0) {
+      await this.studentIndustryRepository.save(toInsert);
+    }
+
+    return { message: 'Industries updated', added: toInsert.length };
   }
 }

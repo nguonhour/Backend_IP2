@@ -17,6 +17,8 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { MasterModule } from './entities/master/master.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { SkillsModule } from './modules/skills/skills.module';
+import { IndustriesModule } from './modules/industries/industries.module';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -88,6 +90,8 @@ function parseBoolean(value: string | undefined, fallback = false): boolean {
     PaymentsModule,
     MasterModule,
     AdminModule,
+    SkillsModule,
+    IndustriesModule,
   ],
 })
 export class AppModule {}

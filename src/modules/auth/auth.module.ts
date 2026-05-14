@@ -14,6 +14,9 @@ import { UserRepository } from './repositories/user.repository';
 import { TokenService } from './services/token.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { GetMeUseCase } from './use-case/getMe_usecase';
+import { EmailService } from './services/email.service';
+import { VerifyEmailUseCase } from './use-case/verify-email.usecase';
+import { ResendVerificationUseCase } from './use-case/resend-verification.usecase';
 
 @Module({
   imports: [TypeOrmModule.forFeature([User, Role, StudentProfile, Resume])],
@@ -28,6 +31,9 @@ import { GetMeUseCase } from './use-case/getMe_usecase';
     RefreshTokenUseCase,
     JwtAuthGuard,
     GetMeUseCase,
+    EmailService,
+    VerifyEmailUseCase,
+    ResendVerificationUseCase,
   ],
   exports: [JwtAuthGuard, AuthService],
 })

@@ -1,5 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
 import { EmployerProfile } from '../../modules/employer-profiles/employer-profile.entity';
+import { StudentIndustry } from '../../modules/student-profiles/student-industry.entity';
 
 @Entity('m_industries')
 export class Industry {
@@ -21,4 +22,7 @@ export class Industry {
 
   @OneToMany(() => EmployerProfile, (profile) => profile.industry)
   employers: EmployerProfile[];
+
+  @OneToMany(() => StudentIndustry, (studentIndustry) => studentIndustry.industry)
+  studentIndustries: StudentIndustry[];
 }

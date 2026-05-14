@@ -4,19 +4,21 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import { UserRepository } from '../repositories/user.repository';
 import { TokenService } from '../services/token.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { StudentProfile } from '../../student-profiles/student-profile.entity';
 import { Resume } from '../../resumes/resume.entity';
+import { EmailService } from '../services/email.service';
 
 @Injectable()
 export class SignupUseCase {
   constructor(
     private readonly userRepo: UserRepository,
     private readonly tokenService: TokenService,
+    private readonly emailService: EmailService,
     @InjectRepository(StudentProfile)
     private readonly studentProfileRepository?: Repository<StudentProfile>,
     @InjectRepository(Resume)
@@ -48,6 +50,18 @@ export class SignupUseCase {
       throw new InternalServerErrorException('Unable to create user');
     }
 
+    const verificationToken = randomBytes(32).toString('hex');
+    const verificationTokenHash = this.hashToken(verificationToken);
+    const verificationExpiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+
+    await this.userRepo.updateEmailVerification(
+      user.id,
+      verificationTokenHash,
+      verificationExpiresAt,
+    );
+
+    await this.emailService.sendVerificationEmail(user.email, verificationToken);
+
     // If student signup includes profile data, create initial StudentProfile and Resume
     if (role === 'student' && additionalData && this.studentProfileRepository) {
       const displayName = (additionalData.name ?? '').trim();
@@ -74,23 +88,13 @@ export class SignupUseCase {
       }
     }
 
-    const tokens = this.tokenService.generateTokens(user);
-    await this.userRepo.updateRefreshToken(user.id, tokens.refreshToken);
-
-    res.cookie('refresh_token', tokens.refreshToken, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
     return {
-      accessToken: tokens.accessToken,
       user: {
         id: user.id,
         email: user.email,
         role: role,
       },
+      message: 'Verification email sent',
     };
   }
 
@@ -100,5 +104,9 @@ export class SignupUseCase {
     }
 
     return createHash('sha256').update(password).digest('hex');
+  }
+
+  private hashToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
   }
 }

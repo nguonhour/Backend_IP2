@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
   Get,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
 import { RegisterEmployerDto } from '../dto/register-employer.dto';
@@ -20,6 +21,9 @@ import { GoogleUseCase } from '../use-case/google.usecase';
 import type { AuthenticatedRequest } from '../../../common/types/auth-request.type';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { GetMeUseCase } from '../use-case/getMe_usecase';
+import { VerifyEmailUseCase } from '../use-case/verify-email.usecase';
+import { ResendVerificationUseCase } from '../use-case/resend-verification.usecase';
+import { ResendVerificationDto } from '../dto/resend-verification.dto';
 
 type AuthUserResponse = {
   id: string;
@@ -28,8 +32,9 @@ type AuthUserResponse = {
 };
 
 type AuthResponse = {
-  accessToken: string;
+  accessToken?: string;
   user: AuthUserResponse;
+  message?: string;
 };
 
 type StudentSignupData = {
@@ -53,6 +58,8 @@ export class AuthController {
     private readonly refreshTokenUseCase: RefreshTokenUseCase,
     private readonly googleUseCase: GoogleUseCase,
     private readonly getMeUseCase: GetMeUseCase,
+    private readonly verifyEmailUseCase: VerifyEmailUseCase,
+    private readonly resendVerificationUseCase: ResendVerificationUseCase,
   ) {}
 
   @Get('me')
@@ -106,6 +113,16 @@ export class AuthController {
   @Post('login')
   login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     return this.loginUseCase.execute(dto.email, dto.password, res);
+  }
+
+  @Get('verify-email')
+  verifyEmail(@Query('token') token: string) {
+    return this.verifyEmailUseCase.execute(token);
+  }
+
+  @Post('resend-verification')
+  resendVerification(@Body() dto: ResendVerificationDto) {
+    return this.resendVerificationUseCase.execute(dto.email);
   }
 
   @Post('refresh')

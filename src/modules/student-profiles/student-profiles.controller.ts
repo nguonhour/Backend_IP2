@@ -15,6 +15,8 @@ import { UpdateStudentDto } from './dto/update-student.dto';
 import { StudentProfilesService } from './student-profiles.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
+import { AddStudentSkillDto } from './dto/add-student-skill.dto';
+import { AddStudentIndustryDto } from './dto/add-student-industry.dto';
 
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller('students')
@@ -61,6 +63,24 @@ export class StudentProfilesController {
     @Body() body: { fileUrl: string },
   ) {
     return this.studentProfilesService.addResume(req.user.id, body.fileUrl);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('me/skills')
+  addSkills(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: AddStudentSkillDto,
+  ) {
+    return this.studentProfilesService.addSkills(req.user.id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('me/industries')
+  addIndustries(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: AddStudentIndustryDto,
+  ) {
+    return this.studentProfilesService.addIndustries(req.user.id, dto);
   }
 
   @UseGuards(JwtAuthGuard)
