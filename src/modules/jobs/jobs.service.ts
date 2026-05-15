@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Query,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -18,6 +19,7 @@ import { JobHistory } from './job-history.entity';
 import { JobSearchDto } from './dto/search-job.dto';
 import { Payment } from '../payments/payment.entity';
 import { StudentProfile } from '../student-profiles/student-profile.entity';
+import { PaginationDto } from './dto/pagination-job.dto';
 
 const PUBLIC_JOB_STATUS_NAMES = ['published', 'active', 'open'];
 
@@ -42,8 +44,11 @@ export class JobsService {
     private studentProfileRepository: Repository<StudentProfile>,
   ) {}
 
-  async getAllJobs() {
-    const jobs = await this.jobRepository
+  async getAllJobs(paginationDto: PaginationDto) {
+    const { page , limit } = paginationDto;
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.jobRepository
       .createQueryBuilder('job')
       .leftJoinAndSelect('job.category', 'category')
       .leftJoinAndSelect('job.jobType', 'jobType')
@@ -54,12 +59,26 @@ export class JobsService {
       })
       .andWhere('(job.deadline IS NULL OR job.deadline >= NOW())')
       .orderBy('job.createdAt', 'DESC')
-      .getMany();
+      .skip(skip)
+      .take(limit);
 
-    return jobs.map((job) => ({
-      ...job,
-      isExpired: job.deadline ? new Date(job.deadline) < new Date() : false,
+    const [jobs, total] = await queryBuilder.getManyAndCount();
+
+    const mappedJobs = jobs.map((job) => ({
+        ...job,
+        isExpired: job.deadline ? new Date(job.deadline) < new Date() : false,
     }));
+
+    return {
+      data: mappedJobs,
+      meta: {
+        totalItems: total,
+        itemCount: mappedJobs.length,
+        itemsPerPage: limit,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+      },
+    };
   }
 
   async getJobById(id: string) {
@@ -340,7 +359,7 @@ export class JobsService {
     const skillIds = student.studentSkills?.map((s) => s.skill.id) ?? [];
 
     if (categoryIds.size === 0 && skillIds.length === 0) {
-      return this.getAllJobs();
+      return this.getAllJobs({ page: 1, limit: 10 });
     }
 
     const qb = this.jobRepository

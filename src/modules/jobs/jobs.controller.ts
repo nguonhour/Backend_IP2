@@ -20,6 +20,7 @@ import { UpdateJobDto } from './dto/update-job.dto';
 import { UpdateJobStatusDto } from './dto/update-job-status.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JobSearchDto } from './dto/search-job.dto';
+import { PaginationDto } from './dto/pagination-job.dto';
 import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
 
 @Controller('jobs')
@@ -28,8 +29,8 @@ export class JobsController {
 
   // Public - Anyone can view jobs
   @Get()
-  async getAllJobs() {
-    return this.jobsService.getAllJobs();
+  async getAllJobs(@Query() paginationDto: PaginationDto) {
+    return this.jobsService.getAllJobs(paginationDto);
   }
 
   @UseGuards(JwtAuthGuard)
