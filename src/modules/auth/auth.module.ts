@@ -6,6 +6,7 @@ import { User } from '../users/user.entity';
 import { Role } from '../../entities/master/role.entity';
 import { StudentProfile } from '../student-profiles/student-profile.entity';
 import { Resume } from '../resumes/resume.entity';
+import { EmployerProfile } from '../employer-profiles/employer-profile.entity';
 import { SignupUseCase } from './use-case/signup.usecase';
 import { LoginUseCase } from './use-case/login.usecase';
 import { GoogleUseCase } from './use-case/google.usecase';
@@ -19,7 +20,7 @@ import { VerifyEmailUseCase } from './use-case/verify-email.usecase';
 import { ResendVerificationUseCase } from './use-case/resend-verification.usecase';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Role, StudentProfile, Resume])],
+  imports: [TypeOrmModule.forFeature([User, Role, StudentProfile, Resume, EmployerProfile])],
   controllers: [AuthController],
   providers: [
     AuthService,

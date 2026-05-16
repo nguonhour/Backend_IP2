@@ -12,6 +12,7 @@ import { Repository } from 'typeorm';
 import { StudentProfile } from '../../student-profiles/student-profile.entity';
 import { Resume } from '../../resumes/resume.entity';
 import { EmailService } from '../services/email.service';
+import { EmployerProfile } from '../../employer-profiles/employer-profile.entity';
 
 @Injectable()
 export class SignupUseCase {
@@ -23,6 +24,8 @@ export class SignupUseCase {
     private readonly studentProfileRepository?: Repository<StudentProfile>,
     @InjectRepository(Resume)
     private readonly resumeRepository?: Repository<Resume>,
+    @InjectRepository(EmployerProfile)
+    private readonly employerProfileRepository?: Repository<EmployerProfile>,
   ) {}
 
   async execute(
@@ -88,6 +91,20 @@ export class SignupUseCase {
       }
     }
 
+    // If employer signup includes profile data, create initial EmployerProfile
+    if (role === 'employer' && additionalData && this.employerProfileRepository) {
+      const companyName = (additionalData.companyName ?? additionalData.name ?? '').trim() || 'Employer';
+
+      const profile = this.employerProfileRepository.create({
+        user: { id: user.id },
+        companyName,
+        contactEmail: user.email,
+        location: additionalData.location ?? null,
+        avatarUrl: additionalData.avatarUrl ?? null,
+      });
+
+      await this.employerProfileRepository.save(profile);
+    }
     return {
       user: {
         id: user.id,
