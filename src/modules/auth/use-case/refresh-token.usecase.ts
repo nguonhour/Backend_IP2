@@ -4,7 +4,6 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { createHash } from 'crypto';
 import { UserRepository } from '../repositories/user.repository';
 import { TokenService } from '../services/token.service';
 
@@ -38,17 +37,22 @@ export class RefreshTokenUseCase {
     // Set new refresh token as httpOnly cookie
     res.cookie('refresh_token', tokens.refreshToken, {
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       secure: process.env.NODE_ENV === 'production',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
     return {
       accessToken: tokens.accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role?.name,
+      },
     };
   }
 
   private hashToken(token: string): string {
-    return createHash('sha256').update(token).digest('hex');
+    return Buffer.from(token).toString('base64url');
   }
 }

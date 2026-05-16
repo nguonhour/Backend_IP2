@@ -25,7 +25,6 @@ export class StudentProfilesController {
     private readonly studentProfilesService: StudentProfilesService,
   ) {}
 
-
   @UseGuards(JwtAuthGuard)
   @Post('save-job/:jobId')
   async saveJob(
