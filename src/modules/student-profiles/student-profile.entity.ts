@@ -17,7 +17,7 @@ import { Application } from '../applications/application.entity';
 import { SavedJob } from '../jobs/saved-job.entity';
 import { SearchHistory } from './search-history.entity';
 import { Resume } from '../resumes/resume.entity';
-import { Exclude } from 'class-transformer';
+import { Exclude, Expose } from 'class-transformer';
 
 @Entity('student_profiles')
 export class StudentProfile {
@@ -28,6 +28,11 @@ export class StudentProfile {
   @OneToOne(() => User, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User | null;
+
+  @Expose()
+  get email(): string | null {
+    return this.user?.email ?? null;
+  }
 
   @Column({ name: 'external_user_id', type: 'varchar', nullable: true, unique: true })
   externalUserId: string | null;

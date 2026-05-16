@@ -123,10 +123,12 @@ export class AuthController {
 
   @Post('logout')
   logout(@Res({ passthrough: true }) res: Response) {
+    const isProd = process.env.NODE_ENV === 'production';
+
     res.clearCookie('refresh_token', {
       httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      sameSite: isProd ? 'none' : 'lax',
+      secure: isProd,
     });
 
     return { message: 'Logged out successfully' };
@@ -138,5 +140,14 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     return this.googleUseCase.execute(dto.access_token, dto.role, res);
+  }
+
+  // Debug endpoint to verify cookies and headers received by the server
+  @Get('debug-cookies')
+  debugCookies(@Req() req: Request) {
+    return {
+      cookies: (req.cookies as Record<string, any> | undefined) ?? {},
+      headers: req.headers,
+    };
   }
 }

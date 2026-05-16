@@ -115,10 +115,12 @@ export class GoogleUseCase {
     const tokens = this.tokenService.generateTokens(user);
     await this.userRepo.updateRefreshToken(user.id, tokens.refreshToken);
 
+    const isProd = process.env.NODE_ENV === 'production'
+
     res.cookie('refresh_token', tokens.refreshToken, {
       httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      sameSite: isProd ? 'none' : 'lax',
+      secure: isProd,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
