@@ -45,7 +45,7 @@ export class JobsService {
   ) {}
 
   async getAllJobs(paginationDto: PaginationDto) {
-    const { page , limit } = paginationDto;
+    const { page, limit, deadlineSort } = paginationDto;
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.jobRepository
@@ -58,9 +58,16 @@ export class JobsService {
         visibleStatuses: PUBLIC_JOB_STATUS_NAMES,
       })
       .andWhere('(job.deadline IS NULL OR job.deadline >= NOW())')
-      .orderBy('job.createdAt', 'DESC')
       .skip(skip)
       .take(limit);
+
+    if (deadlineSort) {
+      queryBuilder
+        .orderBy('job.deadline', deadlineSort.toUpperCase() as 'ASC' | 'DESC', 'NULLS LAST')
+        .addOrderBy('job.createdAt', 'DESC');
+    } else {
+      queryBuilder.orderBy('job.createdAt', 'DESC');
+    }
 
     const [jobs, total] = await queryBuilder.getManyAndCount();
 
@@ -79,6 +86,14 @@ export class JobsService {
         currentPage: page,
       },
     };
+  }
+
+  async getJobCategories() {
+    return this.jobCategoryRepository.find({
+      where: { isActive: true },
+      select: ['id', 'name'],
+      order: { name: 'ASC' },
+    });
   }
 
   async getJobById(id: string) {
@@ -460,10 +475,19 @@ export class JobsService {
   }
 
   async searchJobs(query: JobSearchDto) {
-    const { keyword, location, type, minSalary } = query;
+    const { keyword, category, type, minSalary, deadlineSort, page = 1, limit = 10 } = query;
+    const skip = (page - 1) * limit;
+
     const qb = this.jobRepository
       .createQueryBuilder('job')
-      .leftJoin('job.jobType', 'jobType');
+      .leftJoinAndSelect('job.category', 'category')
+      .leftJoinAndSelect('job.jobType', 'jobType')
+      .leftJoinAndSelect('job.status', 'status')
+      .leftJoinAndSelect('job.employer', 'employer')
+      .where('LOWER(status.name) IN (:...visibleStatuses)', {
+        visibleStatuses: PUBLIC_JOB_STATUS_NAMES,
+      })
+      .andWhere('(job.deadline IS NULL OR job.deadline >= NOW())');
 
     if (keyword) {
       qb.andWhere(
@@ -472,18 +496,44 @@ export class JobsService {
       );
     }
 
-    if (location) {
-      qb.andWhere('job.location = :location', { location });
+    if (category) {
+      qb.andWhere('category.name ILIKE :category', {
+        category: `%${category}%`,
+      });
     }
 
     if (type) {
       qb.andWhere('jobType.name = :type', { type });
     }
 
-    if (minSalary) {
+    if (minSalary !== undefined) {
       qb.andWhere('job.salaryMin >= :minSalary', { minSalary });
     }
 
-    return await qb.getMany();
+    if (deadlineSort) {
+      qb.orderBy('job.deadline', deadlineSort.toUpperCase() as 'ASC' | 'DESC', 'NULLS LAST')
+        .addOrderBy('job.createdAt', 'DESC');
+    } else {
+      qb.orderBy('job.createdAt', 'DESC');
+    }
+
+    const [jobs, total] = await qb.skip(skip).take(limit).getManyAndCount();
+
+    const mappedJobs = jobs.map((job) => ({
+      ...job,
+      isExpired: job.deadline ? new Date(job.deadline) < new Date() : false,
+    }));
+
+    return {
+      data: mappedJobs,
+      meta: {
+        totalItems: total,
+        itemCount: mappedJobs.length,
+        itemsPerPage: limit,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+      },
+    };
   }
+
 }

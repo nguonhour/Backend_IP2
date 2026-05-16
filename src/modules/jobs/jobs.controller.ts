@@ -72,6 +72,11 @@ export class JobsController {
     return await this.jobsService.searchJobs(query);
   }
 
+  @Get('categories')
+  async getJobCategories() {
+    return this.jobsService.getJobCategories();
+  }
+
   @Get(':id')
   async getJobById(@Param('id', ParseUUIDPipe) id: string) {
     return this.jobsService.getJobById(id);
