@@ -24,7 +24,7 @@ services:
     container_name: project_ip2_backend
     environment:
       NODE_ENV: production
-      PORT: 3211:3001
+      # PORT: 3211:3001
       DATABASE_URL: ${DATABASE_URL}
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_KEY: ${SUPABASE_KEY}
@@ -38,7 +38,7 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "${PORT:-3211}:3211"
+      - "3211:3001"
     volumes:
       - .:/app                          # ← mounts your local code into container
       - /app/node_modules               # ← prevents local node_modules from overwriting container's

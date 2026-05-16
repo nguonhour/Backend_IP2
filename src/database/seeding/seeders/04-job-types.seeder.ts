@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Seeder } from '../seed.interface';
-import { JobType, Type } from '../../../entities/master';
+import { JobType, TypeJob } from '../../../entities/master';
 
 @Injectable()
 export class JobTypesSeeder implements Seeder {
@@ -16,7 +16,7 @@ export class JobTypesSeeder implements Seeder {
   async run(): Promise<void> {
     this.logger.log('Seeding job types...');
 
-    const types = Object.values(Type);
+    const types = Object.values(TypeJob);
 
     for (const name of types) {
       const existing = await this.jobTypeRepository.findOne({
