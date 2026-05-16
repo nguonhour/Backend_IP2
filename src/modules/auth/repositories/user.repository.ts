@@ -102,6 +102,40 @@ export class UserRepository {
     await this.userRepository.update({ id: userId }, { passwordHash });
   }
 
+  async updateEmailVerification(
+    userId: string,
+    tokenHash: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    await this.userRepository.update(
+      { id: userId },
+      {
+        emailVerificationTokenHash: tokenHash,
+        emailVerificationExpiresAt: expiresAt,
+      },
+    );
+  }
+
+  async findByEmailVerificationTokenHash(
+    tokenHash: string,
+  ): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { emailVerificationTokenHash: tokenHash },
+      relations: ['role'],
+    });
+  }
+
+  async markEmailVerified(userId: string): Promise<void> {
+    await this.userRepository.update(
+      { id: userId },
+      {
+        isVerified: true,
+        emailVerificationTokenHash: null,
+        emailVerificationExpiresAt: null,
+      },
+    );
+  }
+
   async findByRefreshTokenHash(tokenHash: string): Promise<User | null> {
     const user = await this.userRepository.findOne({
       where: { refreshTokenHash: tokenHash },

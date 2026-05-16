@@ -55,6 +55,22 @@ export class Job {
   location: string;
 
   @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 7,
+    nullable: true,
+  })
+  latitude: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 7,
+    nullable: true,
+  })
+  longitude: number;
+
+  @Column({
     name: 'salary_min',
     type: 'decimal',
     precision: 10,
@@ -75,7 +91,7 @@ export class Job {
   @Column({ nullable: true })
   currency: string;
 
-  @Column({ name: 'number_of_openings', type: 'int'})
+  @Column({ name: 'number_of_openings', type: 'int' })
   numberOfOpenings: number;
 
   @Column({ type: 'timestamp', nullable: true })

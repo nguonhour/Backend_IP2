@@ -22,6 +22,10 @@ export class LoginUseCase {
       throw new UnauthorizedException('Invalid email or password');
     }
 
+    if (!user.isVerified) {
+      throw new UnauthorizedException('Email not verified');
+    }
+
     // Verify password
     const hashedPassword = this.hashPassword(password);
     const storedPassword = user.passwordHash ?? '';

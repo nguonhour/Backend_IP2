@@ -1,5 +1,5 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
-import { UserRepository } from "../repositories/user.repository";
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { UserRepository } from '../repositories/user.repository';
 
 @Injectable()
 export class GetMeUseCase {

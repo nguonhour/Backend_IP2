@@ -5,12 +5,15 @@ import { StudentProfilesService } from './student-profiles.service';
 import { StudentProfile } from './student-profile.entity';
 import { SearchHistory } from './search-history.entity';
 import { StudentSkill } from './student-skill.entity';
+import { StudentIndustry } from './student-industry.entity';
 import { SavedJob } from '../jobs/saved-job.entity';
 import { Job } from '../jobs/job.entity';
 import { Resume } from '../resumes/resume.entity';
 import { University } from '../../entities/master/university.entity';
 import { Major } from '../../entities/master/major.entity';
 import { User } from '../users/user.entity';
+import { Skill } from '../../entities/master/skill.entity';
+import { Industry } from '../../entities/master/industry.entity';
 
 @Module({
   imports: [
@@ -18,12 +21,15 @@ import { User } from '../users/user.entity';
       StudentProfile,
       SearchHistory,
       StudentSkill,
+      StudentIndustry,
       SavedJob,
       Job,
       Resume,
       University,
       Major,
       User,
+      Skill,
+      Industry,
     ]),
   ],
   controllers: [StudentProfilesController],

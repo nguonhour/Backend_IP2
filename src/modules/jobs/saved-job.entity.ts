@@ -11,7 +11,7 @@ export class SavedJob {
   @PrimaryColumn({ name: 'job_id', type: 'uuid' })
   jobId: string;
 
-  @ManyToOne(() => StudentProfile, (student) => student.savedJobs,{
+  @ManyToOne(() => StudentProfile, (student) => student.savedJobs, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'student_id' })

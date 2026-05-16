@@ -18,6 +18,7 @@ import { SavedJob } from '../jobs/saved-job.entity';
 import { SearchHistory } from './search-history.entity';
 import { Resume } from '../resumes/resume.entity';
 import { Exclude, Expose } from 'class-transformer';
+import { StudentIndustry } from './student-industry.entity';
 
 @Entity('student_profiles')
 export class StudentProfile {
@@ -66,6 +67,9 @@ export class StudentProfile {
   @OneToMany(() => StudentSkill, (studentSkill) => studentSkill.student)
   studentSkills: StudentSkill[];
 
+  @OneToMany(() => StudentIndustry, (studentIndustry) => studentIndustry.student)
+  studentIndustries: StudentIndustry[];
+
   @OneToMany(() => Application, (application) => application.student)
   applications: Application[];
 
@@ -74,5 +78,4 @@ export class StudentProfile {
 
   @OneToMany(() => SearchHistory, (history) => history.student)
   searchHistory: SearchHistory[];
-
 }

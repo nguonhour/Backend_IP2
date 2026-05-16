@@ -132,9 +132,11 @@ export class ApplicationsService {
       .leftJoinAndSelect('student.university', 'university')
       .leftJoinAndSelect('student.major', 'major')
       .leftJoinAndSelect('application.resume', 'resume')
+      .leftJoinAndSelect('application.statusHistory', 'statusHistory')
       .innerJoin('application.student', 'studentProfile')
       .where('studentProfile.id = :studentId', { student: { id: student.id } })
       .andWhere('application.id = :id', { id })
+      .orderBy('statusHistory.changedAt', 'DESC')
       .getOne();
 
     if (!application) {
@@ -144,10 +146,27 @@ export class ApplicationsService {
     return application;
   }
 
-  async getCandidatePipeline(
-    userId: string,
-    filters?: { jobId?: string },
-  ) {
+  async getStudentApplicationHistory(applicationId: string, userId: string) {
+    const student = await this.getStudentProfileByUserId(userId);
+
+    const application = await this.applicationRepository.findOne({
+      where: { id: applicationId, student: { id: student.id } },
+    });
+
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+
+    return this.applicationStatusHistoryRepository
+      .createQueryBuilder('history')
+      .innerJoinAndSelect('history.status', 'status')
+      .leftJoinAndSelect('history.changedBy', 'changedBy')
+      .where('history.application = :applicationId', { applicationId })
+      .orderBy('history.changedAt', 'DESC')
+      .getMany();
+  }
+
+  async getCandidatePipeline(userId: string, filters?: { jobId?: string }) {
     const query = this.applicationRepository
       .createQueryBuilder('application')
       .innerJoinAndSelect('application.job', 'job')
@@ -456,7 +475,7 @@ export class ApplicationsService {
 
     return this.resumeRepository.findOne({
       where: { studentId: student.id, isDefault: true },
-      
+
       order: { createdAt: 'DESC' },
     });
   }
