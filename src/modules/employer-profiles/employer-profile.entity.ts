@@ -31,6 +31,12 @@ export class EmployerProfile {
   @JoinColumn({ name: 'industry_id' })
   industry: Industry;
 
+  // @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  // latitude: number;
+
+  // @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  // longitude: number;
+
   @Column({ type: 'varchar', nullable: true })
   location: string;
 
@@ -39,6 +45,21 @@ export class EmployerProfile {
 
   @Column({ name: 'avatar_url', type: 'varchar', nullable: true })
   avatarUrl: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  about: string | null;
+
+  @Column({ name: 'company_size', type: 'varchar', nullable: true })
+  companySize: string | null;
+
+  @Column({ name: 'founded_at', type: 'date', nullable: true })
+  foundedAt: Date | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  website: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  phone: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;

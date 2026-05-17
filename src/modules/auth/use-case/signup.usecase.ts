@@ -91,16 +91,19 @@ export class SignupUseCase {
       }
     }
 
-    // If employer signup includes profile data, create initial EmployerProfile
-    if (role === 'employer' && additionalData && this.employerProfileRepository) {
-      const companyName = (additionalData.companyName ?? additionalData.name ?? '').trim() || 'Employer';
-
+    if (
+      role === 'employer' &&
+      additionalData &&
+      this.employerProfileRepository
+    ) {
       const profile = this.employerProfileRepository.create({
         user: { id: user.id },
-        companyName,
+        companyName:
+          (additionalData.companyName as string | undefined)?.trim() ||
+          (additionalData.name as string | undefined)?.trim() ||
+          'Employer',
         contactEmail: user.email,
-        location: additionalData.location ?? null,
-        avatarUrl: additionalData.avatarUrl ?? null,
+        website: (additionalData.companyWebsite as string | undefined) ?? null,
       });
 
       await this.employerProfileRepository.save(profile);
