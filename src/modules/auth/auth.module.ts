@@ -11,6 +11,8 @@ import { SignupUseCase } from './use-case/signup.usecase';
 import { LoginUseCase } from './use-case/login.usecase';
 import { GoogleUseCase } from './use-case/google.usecase';
 import { RefreshTokenUseCase } from './use-case/refresh-token.usecase';
+import { ForgotPasswordUseCase } from './use-case/forgot-password.usecase';
+import { ResetPasswordUseCase } from './use-case/reset-password.usecase';
 import { UserRepository } from './repositories/user.repository';
 import { TokenService } from './services/token.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -30,6 +32,8 @@ import { ResendVerificationUseCase } from './use-case/resend-verification.usecas
     LoginUseCase,
     GoogleUseCase,
     RefreshTokenUseCase,
+    ForgotPasswordUseCase,
+    ResetPasswordUseCase,
     JwtAuthGuard,
     GetMeUseCase,
     EmailService,

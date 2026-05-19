@@ -116,6 +116,28 @@ export class UserRepository {
     );
   }
 
+  async updateResetToken(
+    userId: string,
+    tokenHash: string | null,
+    expiresAt: Date | null,
+  ): Promise<void> {
+    await this.userRepository.update(
+      { id: userId },
+      { resetTokenHash: tokenHash, resetTokenExpiresAt: expiresAt },
+    );
+  }
+
+  async findByResetTokenHash(tokenHash: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { resetTokenHash: tokenHash },
+      relations: ['role'],
+    });
+  }
+
+  async clearResetToken(userId: string): Promise<void> {
+    await this.userRepository.update({ id: userId }, { resetTokenHash: null, resetTokenExpiresAt: null });
+  }
+
   async findByEmailVerificationTokenHash(
     tokenHash: string,
   ): Promise<User | null> {

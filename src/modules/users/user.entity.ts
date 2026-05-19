@@ -45,11 +45,25 @@ export class User {
   @Column({ name: 'refresh_token_hash', type: 'varchar', nullable: true })
   refreshTokenHash: string | null;
 
-  @Column({ name: 'email_verification_token_hash', type: 'varchar', nullable: true })
+  @Column({
+    name: 'email_verification_token_hash',
+    type: 'varchar',
+    nullable: true,
+  })
   emailVerificationTokenHash: string | null;
 
-  @Column({ name: 'email_verification_expires_at', type: 'timestamp', nullable: true })
+  @Column({
+    name: 'email_verification_expires_at',
+    type: 'timestamp',
+    nullable: true,
+  })
   emailVerificationExpiresAt: Date | null;
+
+  @Column({ name: 'reset_token_hash', type: 'varchar', nullable: true })
+  resetTokenHash: string | null;
+
+  @Column({ name: 'reset_token_expires_at', type: 'timestamp', nullable: true })
+  resetTokenExpiresAt: Date | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
