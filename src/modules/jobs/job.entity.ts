@@ -100,22 +100,6 @@ export class Job {
   @Column({ type: 'text', nullable: true })
   requirements: string;
 
-  @Column({
-    type: 'decimal',
-    precision: 10,
-    scale: 6,
-    nullable: true,
-  })
-  latitude: number;
-
-  @Column({
-    type: 'decimal',
-    precision: 10,
-    scale: 6,
-    nullable: true,
-  })
-  longitude: number;
-
   @ManyToOne(() => JobStatus)
   @JoinColumn({ name: 'status_id' })
   status: JobStatus;

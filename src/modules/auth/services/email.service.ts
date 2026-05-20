@@ -1,21 +1,45 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import sgMail from '@sendgrid/mail';
 
 @Injectable()
 export class EmailService {
+  private static instance: EmailService;
+
+  static getInstance(): EmailService {
+    if (!EmailService.instance) {
+      EmailService.instance = new EmailService();
+    }
+    return EmailService.instance;
+  }
+
+  private disabled = false;
+  private logger = new Logger(EmailService.name);
   constructor() {
     const apiKey = process.env.SENDGRID_API_KEY;
     if (!apiKey) {
-      throw new InternalServerErrorException('SENDGRID_API_KEY is not set');
+      this.disabled = true;
+      return;
     }
     sgMail.setApiKey(apiKey);
   }
 
   async sendVerificationEmail(email: string, token: string) {
-    const appBaseUrl = process.env.APP_BASE_URL ?? 'http://localhost:5174';
+    const appBaseUrl =
+      process.env.APP_BASE_URL ?? process.env.FRONTEND_URL ?? 'http://localhost:5174';
     const from = process.env.SENDGRID_FROM;
     if (!from) {
       throw new InternalServerErrorException('SENDGRID_FROM is not set');
+    }
+
+    if (this.disabled) {
+      this.logger.log(
+        `Email sending is disabled. Would have sent verification email to ${email} with token ${token}`,
+      );
+      return;
     }
 
     const verifyUrl = `${appBaseUrl}/verify-email?token=${encodeURIComponent(token)}`;
@@ -39,8 +63,11 @@ export class EmailService {
           </div>
         `,
       });
-    } catch (err) {
-      throw new InternalServerErrorException('Failed to send verification email');
+    } catch (error) {
+      this.logger.error('Failed to send verification email');
+      throw new InternalServerErrorException(
+        'Failed to send verification email',
+      );
     }
   }
 }
