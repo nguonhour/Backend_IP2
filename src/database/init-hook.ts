@@ -157,4 +157,25 @@ export async function initializeDatabase(dataSource: DataSource) {
     console.error('[InitDB] Error creating FK constraint:', err);
     // Continue anyway - the constraint might already exist or be unnecessary
   }
+  
+  // Fix reports foreign key constraint:
+  // when a job is deleted, keep reports and set job_id to NULL
+  try {
+    await dataSource.query(`
+      ALTER TABLE reports
+      DROP CONSTRAINT IF EXISTS "FK_494740ea1dba7c7c018bc6b2e2a"
+    `);
+
+    await dataSource.query(`
+      ALTER TABLE reports
+      ADD CONSTRAINT "FK_494740ea1dba7c7c018bc6b2e2a"
+      FOREIGN KEY (job_id)
+      REFERENCES jobs(id)
+      ON DELETE SET NULL
+    `);
+
+    console.log('[InitDB] Updated reports.job_id FK to SET NULL');
+  } catch (err) {
+    console.error('[InitDB] Error updating reports FK:', err);
+  }
 }
