@@ -6,7 +6,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Job } from './job.entity';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
@@ -90,7 +90,7 @@ export class JobsService {
 
   async getJobCategories() {
     return this.jobCategoryRepository.find({
-      where: { isActive: true },
+      where: { isActive: true, employer: IsNull() },
       select: ['id', 'name'],
       order: { name: 'ASC' },
     });
@@ -122,7 +122,7 @@ export class JobsService {
 
   async createJob(userId: string, dto: CreateJobDto) {
     const employer = await this.getEmployerProfileByUserId(userId);
-    await this.assertJobRelationsExist(dto);
+    await this.assertJobRelationsExist(dto, employer.id);
     const job = this.jobRepository.create({
       ...dto,
       employer: { id: employer.id },
@@ -188,7 +188,7 @@ export class JobsService {
     }
 
     this.ensureEmployerOwnsJob(job, userId);
-    await this.assertJobRelationsExist(dto);
+    await this.assertJobRelationsExist(dto, job.employer.id);
     await this.recordJobHistory(job);
 
     Object.assign(job, {
@@ -429,11 +429,19 @@ export class JobsService {
 
   private async assertJobRelationsExist(
     dto: Pick<CreateJobDto, 'categoryId' | 'jobTypeId' | 'statusId'>,
+    employerId?: string,
   ) {
     if (dto.categoryId) {
-      const category = await this.jobCategoryRepository.findOne({
-        where: { id: dto.categoryId },
-      });
+      const category = await this.jobCategoryRepository
+        .createQueryBuilder('category')
+        .leftJoin('category.employer', 'employer')
+        .where('category.id = :categoryId', { categoryId: dto.categoryId })
+        .andWhere('category.isActive = true')
+        .andWhere(
+          employerId ? 'employer.id = :employerId' : 'employer.id IS NULL',
+          { employerId },
+        )
+        .getOne();
       if (!category) {
         throw new NotFoundException('Job category not found');
       }

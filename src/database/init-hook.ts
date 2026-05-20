@@ -27,6 +27,66 @@ export async function initializeDatabase(dataSource: DataSource) {
     console.error('[InitDB] Error ensuring external_user_id column:', err);
   }
 
+  try {
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS about text`,
+    );
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS company_size varchar`,
+    );
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS founded_at date`,
+    );
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS website varchar`,
+    );
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS phone varchar`,
+    );
+    console.log('[InitDB] Ensured extended employer profile columns exist');
+  } catch (err) {
+    console.error('[InitDB] Error ensuring employer profile columns:', err);
+  }
+
+  try {
+    await dataSource.query(
+      `ALTER TABLE m_job_categories ADD COLUMN IF NOT EXISTS employer_id uuid`,
+    );
+    await dataSource.query(
+      `ALTER TABLE m_job_categories DROP CONSTRAINT IF EXISTS "UQ_m_job_categories_name"`,
+    );
+    await dataSource.query(`
+      DO $$
+      DECLARE constraint_name text;
+      BEGIN
+        SELECT tc.constraint_name INTO constraint_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON tc.constraint_name = kcu.constraint_name
+          AND tc.table_name = kcu.table_name
+        WHERE tc.table_name = 'm_job_categories'
+          AND tc.constraint_type = 'UNIQUE'
+          AND kcu.column_name = 'name'
+        LIMIT 1;
+
+        IF constraint_name IS NOT NULL THEN
+          EXECUTE format('ALTER TABLE m_job_categories DROP CONSTRAINT %I', constraint_name);
+        END IF;
+      END $$;
+    `);
+    await dataSource.query(
+      `DROP INDEX IF EXISTS "IDX_m_job_categories_name"`,
+    );
+    await dataSource.query(
+      `ALTER TABLE m_job_categories
+       ADD CONSTRAINT "FK_m_job_categories_employer"
+       FOREIGN KEY (employer_id) REFERENCES employer_profiles(id) ON DELETE CASCADE`,
+    ).catch(() => undefined);
+    console.log('[InitDB] Ensured employer-owned job categories are supported');
+  } catch (err) {
+    console.error('[InitDB] Error ensuring employer category columns:', err);
+  }
+
   // try {
   //   await dataSource.query(
   //     `ALTER TABLE m_skills ADD COLUMN IF NOT EXISTS is_active boolean DEFAULT true`,

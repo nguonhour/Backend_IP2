@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
@@ -43,7 +44,7 @@ export class StudentProfilesService {
     @InjectRepository(Industry)
     private industryRepository: Repository<Industry>,
     @InjectRepository(StudentIndustry)
-    private studentIndustryRepository: Repository<StudentIndustry>
+    private studentIndustryRepository: Repository<StudentIndustry>,
   ) {}
 
   async saveJob(userId: string, jobId: string): Promise<SavedJob> {
@@ -111,8 +112,22 @@ export class StudentProfilesService {
     return { message: 'Job removed from saved list' };
   }
 
-
   private async getStudentProfileByUserId(userId: string) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['role'],
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User not found for id ${userId}`);
+    }
+
+    if (user.role?.name?.toUpperCase() !== 'STUDENT') {
+      throw new ForbiddenException(
+        'Only student accounts can access student profiles',
+      );
+    }
+
     let student = await this.studentProfileRepository.findOne({
       where: { user: { id: userId } },
       relations: ['user'],
@@ -152,7 +167,13 @@ export class StudentProfilesService {
 
     const profile = await this.studentProfileRepository.findOne({
       where: { id: student.id },
-      relations: ['user', 'university', 'major', 'studentSkills', 'studentIndustries'],
+      relations: [
+        'user',
+        'university',
+        'major',
+        'studentSkills',
+        'studentIndustries',
+      ],
     });
 
     if (!profile) {
@@ -268,19 +289,18 @@ export class StudentProfilesService {
     return this.resumeRepository.save(resume);
   }
 
-
   async addSkills(userId: string, dto: AddStudentSkillDto) {
     const student = await this.getStudentProfileByUserId(userId);
-    if(!student) {
+    if (!student) {
       throw new NotFoundException('Student profile not found');
     }
 
     const normalized = dto.skills
       .map((skill) => skill.trim())
-      .filter((skill) => skill.length > 0)
+      .filter((skill) => skill.length > 0);
 
     if (normalized.length === 0) {
-      return { message: 'No skills provided' }
+      return { message: 'No skills provided' };
     }
 
     const existingSkills = await this.skillRepository
@@ -290,14 +310,15 @@ export class StudentProfilesService {
       })
       .getMany();
 
-    const existingNames = new Set(existingSkills.map((s) => s.name.toLowerCase()));
+    const existingNames = new Set(
+      existingSkills.map((s) => s.name.toLowerCase()),
+    );
     const newSkills = normalized
       .filter((name) => !existingNames.has(name.toLowerCase()))
       .map((name) => this.skillRepository.create({ name }));
 
-    const createdSkills = newSkills.length > 0
-      ? await this.skillRepository.save(newSkills)
-      : [];
+    const createdSkills =
+      newSkills.length > 0 ? await this.skillRepository.save(newSkills) : [];
 
     const allSkills = [...existingSkills, ...createdSkills];
 
@@ -305,7 +326,9 @@ export class StudentProfilesService {
       where: { studentId: student.id },
     });
 
-    const existingSkillIds = new Set(existingStudentSkills.map((s) => s.skillId));
+    const existingSkillIds = new Set(
+      existingStudentSkills.map((s) => s.skillId),
+    );
 
     const toInsert = allSkills
       .filter((skill) => !existingSkillIds.has(skill.id))
@@ -321,7 +344,6 @@ export class StudentProfilesService {
     }
 
     return { message: 'Skills updated', added: toInsert.length };
-
   }
 
   async addIndustries(userId: string, dto: AddStudentIndustryDto) {
@@ -352,15 +374,18 @@ export class StudentProfilesService {
       .filter((name) => !existingNames.has(name.toLowerCase()))
       .map((name) => this.industryRepository.create({ name }));
 
-    const createdIndustries = newIndustries.length > 0
-      ? await this.industryRepository.save(newIndustries)
-      : [];
+    const createdIndustries =
+      newIndustries.length > 0
+        ? await this.industryRepository.save(newIndustries)
+        : [];
 
     const allIndustries = [...existingIndustries, ...createdIndustries];
 
-    const existingStudentIndustries = await this.studentIndustryRepository.find({
-      where: { studentId: student.id },
-    });
+    const existingStudentIndustries = await this.studentIndustryRepository.find(
+      {
+        where: { studentId: student.id },
+      },
+    );
 
     const existingIndustryIds = new Set(
       existingStudentIndustries.map((i) => i.industryId),
