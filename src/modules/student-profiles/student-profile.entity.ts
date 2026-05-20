@@ -19,6 +19,7 @@ import { SearchHistory } from './search-history.entity';
 import { Resume } from '../resumes/resume.entity';
 import { Exclude, Expose } from 'class-transformer';
 import { StudentIndustry } from './student-industry.entity';
+import { Report } from '../reports/report.entity';
 
 @Entity('student_profiles')
 export class StudentProfile {
@@ -75,6 +76,9 @@ export class StudentProfile {
 
   @OneToMany(() => SavedJob, (savedJob) => savedJob.student)
   savedJobs: SavedJob[];
+
+  @OneToMany(() => Report, (report) => report.reporter)
+  reports: Report[];
 
   @OneToMany(() => SearchHistory, (history) => history.student)
   searchHistory: SearchHistory[];

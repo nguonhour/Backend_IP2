@@ -5,20 +5,23 @@ import {
   PrimaryGeneratedColumn,
   ManyToOne,
   JoinColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { Job } from '../jobs/job.entity';
-import { User } from '../users/user.entity';
+import { StudentProfile } from '../student-profiles/student-profile.entity';
+import { ReportStatus } from './report-status.entity';
+import { ReportType } from './report-type.entity';
 
 @Entity('reports')
 export class Report {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => User, (user) => user.reports, {
+  @ManyToOne(() => StudentProfile, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'reporter_id' })
-  reporter: User;
+  reporter: StudentProfile;
 
   @ManyToOne(() => Job, (job) => job.reports, {
     onDelete: 'CASCADE',
@@ -29,9 +32,17 @@ export class Report {
   @Column({ type: 'text' })
   reason: string;
 
+  @ManyToOne(() => ReportStatus, (status) => status.reports)
+  @JoinColumn({ name: 'report_status_id' })
+  status: ReportStatus;
+
+  @ManyToOne(() => ReportType, (reportType) => reportType.reports)
+  @JoinColumn({ name: 'report_type_id' })
+  reportType: ReportType;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
 
-  @Column({ type: 'varchar' })
-  status: string;
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
+  updatedAt: Date;
 }
