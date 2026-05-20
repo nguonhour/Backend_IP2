@@ -17,7 +17,6 @@ import { JobType } from '../../entities/master/job-type.entity';
 import { JobStatus } from '../../entities/master/job-status.entity';
 import { JobHistory } from './job-history.entity';
 import { JobSearchDto } from './dto/search-job.dto';
-import { Payment } from '../payments/payment.entity';
 import { StudentProfile } from '../student-profiles/student-profile.entity';
 import { PaginationDto } from './dto/pagination-job.dto';
 
@@ -38,8 +37,6 @@ export class JobsService {
     private jobStatusRepository: Repository<JobStatus>,
     @InjectRepository(JobHistory)
     private jobHistoryRepository: Repository<JobHistory>,
-    @InjectRepository(Payment)
-    private paymentRepository: Repository<Payment>,
     @InjectRepository(StudentProfile)
     private studentProfileRepository: Repository<StudentProfile>,
   ) {}
@@ -272,14 +269,6 @@ export class JobsService {
         'Cannot delete this job because it already has applications. Please close the job instead.',
       );
     }
-
-    // Keep payment records while detaching the deleted job reference.
-    await this.paymentRepository
-      .createQueryBuilder()
-      .update(Payment)
-      .set({ job: null as unknown as Payment['job'] })
-      .where('job_id = :jobId', { jobId: job.id })
-      .execute();
 
     await this.jobHistoryRepository
       .createQueryBuilder()

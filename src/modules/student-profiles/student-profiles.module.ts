@@ -14,6 +14,7 @@ import { Major } from '../../entities/master/major.entity';
 import { User } from '../users/user.entity';
 import { Skill } from '../../entities/master/skill.entity';
 import { Industry } from '../../entities/master/industry.entity';
+import { StudentProfilesRepository } from './repository/student-profiles.repository';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { Industry } from '../../entities/master/industry.entity';
     ]),
   ],
   controllers: [StudentProfilesController],
-  providers: [StudentProfilesService],
+  providers: [StudentProfilesService, StudentProfilesRepository],
+  exports: [StudentProfilesRepository],
 })
 export class StudentProfilesModule {}

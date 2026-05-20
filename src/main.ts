@@ -7,11 +7,9 @@ import { DataSource } from 'typeorm';
 import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
-  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)))
-
-  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)))
+  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 
   // Initialize database constraints
   try {
@@ -21,7 +19,8 @@ async function bootstrap() {
     console.error('Failed to initialize database:', err);
   }
 
-  const corsOrigins = (process.env.CORS_ORIGIN ?? '*')
+  // const corsOrigins = (process.env.CORS_ORIGIN ?? '*')
+  const corsOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:5173')
     .split(',')
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
@@ -36,7 +35,11 @@ async function bootstrap() {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'ngrok-skip-browser-warning',
+    ],
     optionsSuccessStatus: 204,
   });
 

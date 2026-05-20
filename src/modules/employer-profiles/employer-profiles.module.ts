@@ -5,6 +5,7 @@ import { EmployerProfile } from './employer-profile.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../users/user.entity';
 import { Industry } from '../../entities/master/industry.entity';
+import { EmployerProfilesRepository } from './repository/employer-profiles.repository';
 import { JobCategory } from '../../entities/master/job-category.entity';
 
 @Module({
@@ -12,6 +13,7 @@ import { JobCategory } from '../../entities/master/job-category.entity';
     TypeOrmModule.forFeature([EmployerProfile, User, Industry, JobCategory]),
   ],
   controllers: [EmployerProfilesController],
-  providers: [EmployerProfilesService],
+  providers: [EmployerProfilesService, EmployerProfilesRepository],
+  exports: [EmployerProfilesRepository],
 })
 export class EmployerProfilesModule {}

@@ -14,6 +14,7 @@ import { RefreshTokenUseCase } from './use-case/refresh-token.usecase';
 import { UserRepository } from './repositories/user.repository';
 import { TokenService } from './services/token.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
 import { GetMeUseCase } from './use-case/getMe_usecase';
 import { EmailService } from './services/email.service';
 import { VerifyEmailUseCase } from './use-case/verify-email.usecase';
@@ -33,11 +34,12 @@ import { ResendVerificationUseCase } from './use-case/resend-verification.usecas
     GoogleUseCase,
     RefreshTokenUseCase,
     JwtAuthGuard,
+    OptionalJwtAuthGuard,
     GetMeUseCase,
     EmailService,
     VerifyEmailUseCase,
     ResendVerificationUseCase,
   ],
-  exports: [JwtAuthGuard, AuthService],
+  exports: [JwtAuthGuard, OptionalJwtAuthGuard, AuthService],
 })
 export class AuthModule {}

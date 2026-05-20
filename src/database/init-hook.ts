@@ -9,8 +9,24 @@ export async function initializeDatabase(dataSource: DataSource) {
       `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS longitude numeric(10, 7)`,
     );
     console.log('[InitDB] Ensured latitude/longitude columns exist on jobs');
+    await dataSource.query(
+      `ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_method varchar`,
+    );
+    await dataSource.query(
+      `ALTER TABLE payments ADD COLUMN IF NOT EXISTS transaction_ref varchar`,
+    );
+    await dataSource.query(
+      `ALTER TABLE payments ADD COLUMN IF NOT EXISTS plan_name varchar`,
+    );
+    await dataSource.query(
+      `ALTER TABLE payments ADD COLUMN IF NOT EXISTS expires_at timestamp`,
+    );
+    await dataSource.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_payments_transaction_ref" ON payments (transaction_ref)`,
+    );
+    console.log('[InitDB] Ensured payment checkout columns exist on payments');
   } catch (err) {
-    console.error('[InitDB] Error ensuring jobs map columns:', err);
+    console.error('[InitDB] Error ensuring payment checkout columns:', err);
   }
 
   try {
