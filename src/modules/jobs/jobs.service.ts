@@ -69,8 +69,8 @@ export class JobsService {
     const [jobs, total] = await queryBuilder.getManyAndCount();
 
     const mappedJobs = jobs.map((job) => ({
-        ...job,
-        isExpired: job.deadline ? new Date(job.deadline) < new Date() : false,
+      ...job,
+      isExpired: job.deadline ? new Date(job.deadline) < new Date() : false,
     }));
 
     return {

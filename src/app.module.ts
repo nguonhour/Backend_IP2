@@ -14,6 +14,7 @@ import { ResumesModule } from './modules/resumes/resumes.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { StudentCompanyPreferencesModule } from './modules/student-company-preferences/student-company-preferences.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { MasterModule } from './entities/master/master.module';
 import { AdminModule } from './modules/admin/admin.module';
@@ -87,6 +88,7 @@ function parseBoolean(value: string | undefined, fallback = false): boolean {
     ReviewsModule,
     NotificationsModule,
     ReportsModule,
+    StudentCompanyPreferencesModule,
     PaymentsModule,
     MasterModule,
     AdminModule,

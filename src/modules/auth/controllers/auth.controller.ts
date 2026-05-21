@@ -16,6 +16,8 @@ import { LoginDto } from '../dto/login.dto';
 import { SignupUseCase } from '../use-case/signup.usecase';
 import { LoginUseCase } from '../use-case/login.usecase';
 import { RefreshTokenUseCase } from '../use-case/refresh-token.usecase';
+import { ForgotPasswordUseCase } from '../use-case/forgot-password.usecase';
+import { ResetPasswordUseCase } from '../use-case/reset-password.usecase';
 import { GoogleAuthDto } from '../dto/google.dto';
 import { GoogleUseCase } from '../use-case/google.usecase';
 import type { AuthenticatedRequest } from '../../../common/types/auth-request.type';
@@ -56,6 +58,8 @@ export class AuthController {
     private readonly signupUseCase: SignupUseCase,
     private readonly loginUseCase: LoginUseCase,
     private readonly refreshTokenUseCase: RefreshTokenUseCase,
+    private readonly forgotPasswordUseCase: ForgotPasswordUseCase,
+    private readonly resetPasswordUseCase: ResetPasswordUseCase,
     private readonly googleUseCase: GoogleUseCase,
     private readonly getMeUseCase: GetMeUseCase,
     private readonly verifyEmailUseCase: VerifyEmailUseCase,
@@ -136,6 +140,24 @@ export class AuthController {
     }
 
     return this.refreshTokenUseCase.execute(refreshToken, res);
+  }
+
+  @Post('forgot-password')
+  async forgotPassword(@Body() body: { email: string }) {
+    await this.forgotPasswordUseCase.execute(body.email);
+    return { message: 'If an account exists, a reset email has been sent' };
+  }
+
+  @Post('reset-password')
+  async resetPassword(
+    @Body() body: { email: string; token: string; newPassword: string },
+  ) {
+    await this.resetPasswordUseCase.execute(
+      body.email,
+      body.token,
+      body.newPassword,
+    );
+    return { message: 'Password reset successful' };
   }
 
   @Post('logout')
