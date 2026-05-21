@@ -24,10 +24,11 @@ export class Report {
   reporter: StudentProfile;
 
   @ManyToOne(() => Job, (job) => job.reports, {
-    onDelete: 'CASCADE',
+    nullable: true,
+    onDelete: 'SET NULL',
   })
   @JoinColumn({ name: 'job_id' })
-  job: Job;
+  job: Job | null;
 
   @Column({ type: 'text' })
   reason: string;

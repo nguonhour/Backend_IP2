@@ -15,6 +15,7 @@ import { ApplicationStatusHistory } from './application-status-history.entity';
 import { UpdateApplicationStatusDto } from './dto/update-application-status.dto';
 import { Resume } from '../resumes/resume.entity';
 import { EmployerApplicationHistoryDto } from './dto/employer-application-history.dto';
+// import { ApplicationStatus } from './application-status.enum';
 
 const INITIAL_APPLICATION_STATUS_NAMES = ['pending', 'applied'];
 
@@ -144,6 +145,31 @@ export class ApplicationsService {
     }
 
     return application;
+  }
+
+  async getAllApplications(filters?: {
+    today?: boolean;
+    hired?: boolean;
+  }) {
+    const query = this.applicationRepository
+      .createQueryBuilder('applicant')
+      .leftJoinAndSelect('applicant.currentStatus', 'status');
+
+    if (filters?.hired) {
+      query.andWhere(
+        '(LOWER(status.name) = :accepted OR LOWER(status.name) = :hired)',
+        {
+          accepted: 'accepted',
+          hired: 'hired',
+        },
+      );
+    }
+
+    if (filters?.today) {
+      query.andWhere('DATE(applicant.appliedAt) = CURRENT_TIMESTAMP');
+    }
+
+    return query.getMany();
   }
 
   async getStudentApplicationHistory(applicationId: string, userId: string) {
