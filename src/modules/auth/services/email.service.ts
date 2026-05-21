@@ -1,29 +1,28 @@
 import {
   Injectable,
-  InternalServerErrorException,
   Logger,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import sgMail from '@sendgrid/mail';
 
 @Injectable()
 export class EmailService {
-  private static instance: EmailService;
+  private readonly logger = new Logger(EmailService.name);
+  private readonly isEnabled: boolean;
 
-  static getInstance(): EmailService {
-    if (!EmailService.instance) {
-      EmailService.instance = new EmailService();
-    }
-    return EmailService.instance;
-  }
-
-  private disabled = false;
-  private logger = new Logger(EmailService.name);
   constructor() {
     const apiKey = process.env.SENDGRID_API_KEY;
-    if (!apiKey) {
-      this.disabled = true;
+    const from = process.env.SENDGRID_FROM;
+
+    this.isEnabled = Boolean(apiKey && from);
+
+    if (!apiKey || !from) {
+      this.logger.warn(
+        'SendGrid is not configured. Email verification will be skipped in this environment.',
+      );
       return;
     }
+
     sgMail.setApiKey(apiKey);
   }
 
@@ -32,6 +31,11 @@ export class EmailService {
       process.env.APP_BASE_URL ??
       process.env.FRONTEND_URL ??
       'http://localhost:5174';
+    if (!this.isEnabled) {
+      return;
+    }
+
+//     const appBaseUrl = process.env.APP_BASE_URL ?? 'http://localhost:5174';
     const from = process.env.SENDGRID_FROM;
     if (!from) {
       throw new InternalServerErrorException('SENDGRID_FROM is not set');
@@ -72,6 +76,47 @@ export class EmailService {
       this.logger.error(`Failed to send verification email: ${errorMessage}`);
       throw new InternalServerErrorException(
         'Failed to send verification email',
+      );
+    }
+  }
+
+  async sendResetPasswordEmail(email: string, token: string) {
+    if (!this.isEnabled) {
+      return;
+    }
+
+    const appBaseUrl = process.env.APP_BASE_URL ?? 'http://localhost:5174';
+    const from = process.env.SENDGRID_FROM;
+    if (!from) {
+      throw new InternalServerErrorException('SENDGRID_FROM is not set');
+    }
+
+    const resetUrl = `${appBaseUrl}/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(
+      email,
+    )}`;
+
+    try {
+      await sgMail.send({
+        to: email,
+        from,
+        subject: 'Reset your password',
+        html: `
+          <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+            <h2>Reset your password</h2>
+            <p>Click the button below to set a new password. This link will expire in 1 hour.</p>
+            <p>
+              <a href="${resetUrl}" style="background:#1E51BE;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;display:inline-block;">
+                Reset Password
+              </a>
+            </p>
+            <p>If the button doesn't work, copy and paste this link:</p>
+            <p>${resetUrl}</p>
+          </div>
+        `,
+      });
+    } catch {
+      throw new InternalServerErrorException(
+        'Failed to send reset password email',
       );
     }
   }

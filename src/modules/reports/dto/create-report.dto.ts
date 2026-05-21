@@ -1,17 +1,10 @@
-import { IsNotEmpty, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsString, IsUUID, Length } from 'class-validator';
 
 export class CreateReportDto {
-    
-    @IsString()
-    @IsNotEmpty()
-    @MaxLength(1000)
-    reason: string;
+  @IsUUID()
+  jobId: string;
 
-    @IsUUID()
-    @IsNotEmpty()
-    jobId: string;
-
-    @IsUUID()
-    @IsNotEmpty()
-    reportTypeId: string;
+  @IsString()
+  @Length(3, 1000)
+  reason: string;
 }

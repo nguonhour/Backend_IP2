@@ -1,55 +1,40 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Patch,
-  Post,
-  Query,
-  Request,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Post, Req, UseGuards, BadRequestException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { ReportsService } from './reports.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
 import { CreateReportDto } from './dto/create-report.dto';
-import { UpdateReportStatusDto } from './dto/update-report-status-dto';
-import { PaginationReportDto } from './dto/pagination-report.dto';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { StudentProfile } from '../student-profiles/student-profile.entity';
+import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
 
 @Controller('reports')
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) {}
+	constructor(
+		private readonly service: ReportsService,
+		@InjectRepository(StudentProfile)
+		private studentProfileRepo: Repository<StudentProfile>,
+	) {}
 
-  @Get()
-  @Roles('ADMIN')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  async getReports(@Query() paginationDto: PaginationReportDto) {
-    return this.reportsService.getReports(paginationDto);
-  }
+	@UseGuards(JwtAuthGuard)
+	@Post()
+	async create(@Req() req: AuthenticatedRequest, @Body() dto: CreateReportDto) {
+		// Get the authenticated user's student profile
+		const studentProfile = await this.studentProfileRepo.findOne({
+			where: { user: { id: req.user.id } },
+		});
 
-  @Get(':id')
-  async getReportById(@Param('id', ParseUUIDPipe) id: string) {
-    return this.reportsService.getReportById(id);
-  }
+		if (!studentProfile) {
+			throw new BadRequestException('Student profile not found for user');
+		}
 
-  @UseGuards(JwtAuthGuard)
-  @Post()
-  async createReport(
-    @Request() req: AuthenticatedRequest,
-    @Body() dto: CreateReportDto,
-  ) {
-    return this.reportsService.createReport(req.user.id, dto);
-  }
+		const reporterId = studentProfile.id;
 
-  @UseGuards(JwtAuthGuard)
-  @Patch(':id/status')
-  async updateReportStatus(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateReportStatusDto,
-  ) {
-    return this.reportsService.updateReportStatus(id, dto);
-  }
+		const created = await this.service.create({
+			reporter: { id: reporterId },
+			job: { id: dto.jobId },
+			reason: dto.reason,
+		} as any);
+
+		return created;
+	}
 }
