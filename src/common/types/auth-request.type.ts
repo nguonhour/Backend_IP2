@@ -7,5 +7,5 @@ export interface AuthenticatedUser {
 }
 
 export interface AuthenticatedRequest extends Request {
-  user: { id: string };
+  user: AuthenticatedUser;
 }

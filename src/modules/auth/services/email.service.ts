@@ -35,13 +35,13 @@ export class EmailService {
       return;
     }
 
-//     const appBaseUrl = process.env.APP_BASE_URL ?? 'http://localhost:5174';
+    //     const appBaseUrl = process.env.APP_BASE_URL ?? 'http://localhost:5174';
     const from = process.env.SENDGRID_FROM;
     if (!from) {
       throw new InternalServerErrorException('SENDGRID_FROM is not set');
     }
 
-    if (this.disabled) {
+    if (!this.isEnabled) {
       this.logger.log(
         `Email sending is disabled. Would have sent verification email to ${email} with token ${token}`,
       );
