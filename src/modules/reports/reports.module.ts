@@ -13,7 +13,7 @@ import { Job } from '../jobs/job.entity';
     TypeOrmModule.forFeature([
       Report,
       StudentProfile,
-      ReportStatus,
+      // ReportStatus,
       ReportType,
       Job,
     ]),

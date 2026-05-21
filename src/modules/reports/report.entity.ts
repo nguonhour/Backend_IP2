@@ -9,7 +9,6 @@ import {
 } from 'typeorm';
 import { Job } from '../jobs/job.entity';
 import { StudentProfile } from '../student-profiles/student-profile.entity';
-import { ReportStatus } from './report-status.entity';
 import { ReportType } from './report-type.entity';
 
 @Entity('reports')
@@ -33,9 +32,8 @@ export class Report {
   @Column({ type: 'text' })
   reason: string;
 
-  @ManyToOne(() => ReportStatus, (status) => status.reports)
-  @JoinColumn({ name: 'report_status_id' })
-  status: ReportStatus;
+  @Column({ type: 'varchar', name: 'status'})
+  status: string;
 
   @ManyToOne(() => ReportType, (reportType) => reportType.reports)
   @JoinColumn({ name: 'report_type_id' })
