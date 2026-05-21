@@ -19,6 +19,7 @@ import { SearchHistory } from './search-history.entity';
 import { Resume } from '../resumes/resume.entity';
 import { Exclude, Expose } from 'class-transformer';
 import { StudentIndustry } from './student-industry.entity';
+import { Report } from '../reports/report.entity';
 
 @Entity('student_profiles')
 export class StudentProfile {
@@ -35,7 +36,12 @@ export class StudentProfile {
     return this.user?.email ?? null;
   }
 
-  @Column({ name: 'external_user_id', type: 'varchar', nullable: true, unique: true })
+  @Column({
+    name: 'external_user_id',
+    type: 'varchar',
+    nullable: true,
+    unique: true,
+  })
   externalUserId: string | null;
 
   @Column({ name: 'first_name', type: 'varchar', nullable: false })
@@ -67,7 +73,10 @@ export class StudentProfile {
   @OneToMany(() => StudentSkill, (studentSkill) => studentSkill.student)
   studentSkills: StudentSkill[];
 
-  @OneToMany(() => StudentIndustry, (studentIndustry) => studentIndustry.student)
+  @OneToMany(
+    () => StudentIndustry,
+    (studentIndustry) => studentIndustry.student,
+  )
   studentIndustries: StudentIndustry[];
 
   @OneToMany(() => Application, (application) => application.student)
@@ -75,6 +84,9 @@ export class StudentProfile {
 
   @OneToMany(() => SavedJob, (savedJob) => savedJob.student)
   savedJobs: SavedJob[];
+
+  @OneToMany(() => Report, (report) => report.reporter)
+  reports: Report[];
 
   @OneToMany(() => SearchHistory, (history) => history.student)
   searchHistory: SearchHistory[];

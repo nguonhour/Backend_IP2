@@ -37,6 +37,13 @@ export class EmailService {
       throw new InternalServerErrorException('SENDGRID_FROM is not set');
     }
 
+    if (this.disabled) {
+      this.logger.log(
+        `Email sending is disabled. Would have sent verification email to ${email} with token ${token}`,
+      );
+      return;
+    }
+
     const verifyUrl = `${appBaseUrl}/verify-email?token=${encodeURIComponent(token)}`;
 
     try {

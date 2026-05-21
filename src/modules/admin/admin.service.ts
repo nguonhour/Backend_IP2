@@ -47,7 +47,7 @@ export class AdminService {
         .getCount(),
       this.reportRepository.count(),
       this.reportRepository.count({
-        where: { status: 'OPEN' },
+        where: { status: { name: 'OPEN' } },
       }),
     ]);
 

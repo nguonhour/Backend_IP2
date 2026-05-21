@@ -97,6 +97,9 @@ export class Job {
   @Column({ type: 'timestamp', nullable: true })
   deadline: Date;
 
+  @Column({ type: 'text', nullable: true })
+  requirements: string;
+
   @ManyToOne(() => JobStatus)
   @JoinColumn({ name: 'status_id' })
   status: JobStatus;

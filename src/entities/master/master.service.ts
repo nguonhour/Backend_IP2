@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { JobStatus } from './job-status.entity';
 import { ApplicationStatus } from './application-status.entity';
 import { University } from './university.entity';
@@ -35,7 +35,7 @@ export class MasterService {
 
   async getJobCategories() {
     return this.jobCategoryRepository.find({
-      where: { isActive: true },
+      where: { isActive: true, employer: IsNull() },
       select: ['id', 'name'],
       order: { name: 'ASC' },
     });

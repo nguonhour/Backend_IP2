@@ -14,7 +14,6 @@ import { StudentProfile } from '../../modules/student-profiles/student-profile.e
 import { EmployerProfile } from '../../modules/employer-profiles/employer-profile.entity';
 import { Notification } from '../notifications/notification.entity';
 import { ApplicationStatusHistory } from '../applications/application-status-history.entity';
-import { Report } from '../reports/report.entity';
 
 @Entity('users')
 export class User {
@@ -83,6 +82,4 @@ export class User {
   @OneToMany(() => ApplicationStatusHistory, (history) => history.changedBy)
   applicationStatusChanges: ApplicationStatusHistory[];
 
-  @OneToMany(() => Report, (report) => report.reporter)
-  reports: Report[];
 }
