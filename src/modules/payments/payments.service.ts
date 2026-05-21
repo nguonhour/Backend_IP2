@@ -27,9 +27,8 @@ import { PaymentStatus } from './enum/payment-status.enum';
 import { AbaPushbackPayload } from './interfaces/aba-pushback-payload.interface';
 
 /**
- * Verify pushback signature using conservative strategies:
- * - HMAC-SHA256(apiKey, base)
- * - SHA256(base + apiKey)
+ * Verify pushback signature using timing-safe comparison.
+ * Protects against timing attacks by using crypto.timingSafeEqual.
  * base is constructed as `${reqTime}${merchantId}${tranId}${amount}`
  */
 export function verifyPushbackSignature(
@@ -45,16 +44,20 @@ export function verifyPushbackSignature(
   const amount = String(payload.amount ?? '');
 
   const base = `${reqTime}${merchantId}${tranId}${amount}`;
-
-  const hmac = crypto.createHmac('sha256', apiKey).update(base).digest('hex');
-  const alt = crypto
-    .createHash('sha256')
-    .update(base + apiKey)
+  const hmacHex = crypto
+    .createHmac('sha256', apiKey)
+    .update(base)
     .digest('hex');
 
-  return [hmac, alt].some(
-    (v) => v.toLowerCase() === String(providedHash ?? '').toLowerCase(),
-  );
+  // Convert to Buffer for timing-safe comparison
+  const expectBuf = Buffer.from(hmacHex.toLowerCase());
+  const actualBuf = Buffer.from(String(providedHash ?? '').toLowerCase());
+
+  // Return false immediately if lengths don't match (safe operation)
+  if (expectBuf.length !== actualBuf.length) return false;
+
+  // Use timing-safe comparison to prevent timing attacks
+  return crypto.timingSafeEqual(expectBuf, actualBuf);
 }
 
 /**
@@ -121,12 +124,21 @@ export class PaymentsService {
     return Buffer.from(value).toString('base64');
   }
 
-  private createPaywayHash(values: string[]): string {
+  /**
+   * Create ABA PayWay hash with specified algorithm and encoding.
+   * - SHA512 + base64: For hosted checkout (SDK handles internally)
+   * - SHA256 + hex: For QR code generation API
+   */
+  private createPaywayHash(
+    values: string[],
+    algorithm: 'sha256' | 'sha512' = 'sha512',
+    encoding: 'base64' | 'hex' = 'base64',
+  ): string {
     const apiKey = this.config.get<string>('ABA_API_KEY') ?? '';
     return crypto
-      .createHmac('sha512', apiKey)
+      .createHmac(algorithm, apiKey)
       .update(values.join(''))
-      .digest('base64');
+      .digest(encoding);
   }
 
   private getPaywayBaseUrl() {
@@ -169,7 +181,7 @@ export class PaymentsService {
   ): Promise<GenerateQRResponse> {
     const reqTime = this.formatPaywayRequestTime();
     const currency = options.currency ?? 'USD';
-    const amount = this.formatPaywayAmount(options.amount, currency);
+    const amountStr = options.amount.toString(); // string representation for hash
     const items = options.items ? this.toBase64(options.items) : '';
     const callbackUrl = options.callbackUrl
       ? this.toBase64(options.callbackUrl)
@@ -182,27 +194,32 @@ export class PaymentsService {
       : '';
     const payout = options.payout ? this.toBase64(options.payout) : '';
 
-    const hash = this.createPaywayHash([
-      reqTime,
-      this.config.get<string>('ABA_MERCHANT_ID') ?? '',
-      options.transactionId,
-      amount,
-      items,
-      options.firstName ?? '',
-      options.lastName ?? '',
-      options.email ?? '',
-      options.phone ?? '',
-      options.purchaseType ?? '',
-      options.paymentOption,
-      callbackUrl,
-      returnDeeplink,
-      currency,
-      customFields,
-      options.returnParams ?? '',
-      payout,
-      options.lifetime.toString(),
-      options.qrImageTemplate,
-    ]);
+    // QR verification requires SHA-256 with HEX encoding (not SHA-512 base64)
+    const hash = this.createPaywayHash(
+      [
+        reqTime,
+        this.config.get<string>('ABA_MERCHANT_ID') ?? '',
+        options.transactionId,
+        amountStr,
+        items,
+        options.firstName ?? '',
+        options.lastName ?? '',
+        options.email ?? '',
+        options.phone ?? '',
+        options.purchaseType ?? '',
+        options.paymentOption,
+        callbackUrl,
+        returnDeeplink,
+        currency,
+        customFields,
+        options.returnParams ?? '',
+        payout,
+        options.lifetime.toString(),
+        options.qrImageTemplate ?? '',
+      ],
+      'sha256',
+      'hex',
+    ); // Explicit SHA256 + HEX for QR API
 
     const response = await fetch(
       `${this.getPaywayBaseUrl()}/api/payment-gateway/v1/payments/generate-qr`,
@@ -214,7 +231,7 @@ export class PaymentsService {
             req_time: reqTime,
             merchant_id: this.config.get<string>('ABA_MERCHANT_ID') ?? '',
             tran_id: options.transactionId,
-            amount,
+            amount: amountStr,
             currency,
             payment_option: options.paymentOption,
             lifetime: options.lifetime,
@@ -364,43 +381,29 @@ export class PaymentsService {
         return { ok: false, reason: 'invalid_signature' };
       }
 
-      // Determine status field(s) used by ABA
-      const statusCode = String(
-        payload.status_code ?? payload.statusCode ?? payload.status ?? '',
-      );
-      const paymentStatus = String(
-        payload.payment_status ?? payload.paymentStatus ?? '',
-      );
+      // Determine payment status from ABA response
+      // ABA's standard success indicator is status code '0' or '00'
+      const rawCode = String(
+        payload.status ?? payload.status_code ?? payload.code ?? '',
+      ).trim();
 
-      // Map to our internal status
+      // Map to our internal status - explicit check for success
       let newStatus = PaymentStatus.PENDING;
-      const successValues = ['00', 'SUCCESS', 'APPROVED', 'PAID'];
-      const failedValues = ['DECLINED', 'FAILED', 'CANCELLED'];
 
+      // ABA success codes: '0', '00', or uppercase 'SUCCESS'/'APPROVED'
       if (
-        typeof statusCode === 'string' &&
-        successValues.includes(statusCode.toUpperCase())
+        rawCode === '0' ||
+        rawCode === '00' ||
+        rawCode.toUpperCase() === 'SUCCESS' ||
+        rawCode.toUpperCase() === 'APPROVED'
       ) {
         newStatus = PaymentStatus.PAID;
       } else if (
-        typeof paymentStatus === 'string' &&
-        successValues.includes(paymentStatus.toUpperCase())
-      ) {
-        newStatus = PaymentStatus.PAID;
-      } else if (
-        typeof statusCode === 'string' &&
-        failedValues.includes(statusCode.toUpperCase())
+        rawCode.toUpperCase() === 'FAILED' ||
+        rawCode.toUpperCase() === 'DECLINED' ||
+        rawCode.toUpperCase() === 'CANCELLED'
       ) {
         newStatus = PaymentStatus.FAILED;
-      } else if (
-        typeof paymentStatus === 'string' &&
-        failedValues.includes(paymentStatus.toUpperCase())
-      ) {
-        newStatus = PaymentStatus.FAILED;
-      } else if (
-        String(payload.code || payload.result_code || '').toUpperCase() === '00'
-      ) {
-        newStatus = PaymentStatus.PAID;
       }
 
       // Update payment by transactionRef (tranId)

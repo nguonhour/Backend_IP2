@@ -45,6 +45,13 @@ export class PaymentsController {
     return base.replace(/\/+$/, '');
   }
 
+  private getBackendBaseUrl() {
+    const configured = this.config.get<string>('BACKEND_URL') ?? '';
+    const fallback = `http://localhost:${this.config.get<string>('PORT') ?? '3211'}`;
+    const base = configured.trim() || fallback;
+    return base.replace(/\/+$/, '');
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard)
   async createPayment(

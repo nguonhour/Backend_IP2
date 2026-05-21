@@ -29,7 +29,9 @@ export class EmailService {
 
   async sendVerificationEmail(email: string, token: string) {
     const appBaseUrl =
-      process.env.APP_BASE_URL ?? process.env.FRONTEND_URL ?? 'http://localhost:5174';
+      process.env.APP_BASE_URL ??
+      process.env.FRONTEND_URL ??
+      'http://localhost:5174';
     const from = process.env.SENDGRID_FROM;
     if (!from) {
       throw new InternalServerErrorException('SENDGRID_FROM is not set');
@@ -64,7 +66,10 @@ export class EmailService {
         `,
       });
     } catch (error) {
-      this.logger.error('Failed to send verification email');
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+
+      this.logger.error(`Failed to send verification email: ${errorMessage}`);
       throw new InternalServerErrorException(
         'Failed to send verification email',
       );

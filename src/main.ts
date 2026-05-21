@@ -13,10 +13,11 @@ async function bootstrap() {
 
   // Initialize database constraints
   try {
-    const dataSource = app.get(DataSource);
+    const dataSource = app.get<DataSource>(DataSource);
     await initializeDatabase(dataSource);
   } catch (err) {
-    console.error('Failed to initialize database:', err);
+    const error = err instanceof Error ? err : new Error(String(err));
+    console.error('Failed to initialize database:', error);
   }
 
   // const corsOrigins = (process.env.CORS_ORIGIN ?? '*')
@@ -26,7 +27,10 @@ async function bootstrap() {
     .filter((origin) => origin.length > 0);
 
   app.enableCors({
-    origin: (requestOrigin, callback) => {
+    origin: (
+      requestOrigin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
       if (!requestOrigin) return callback(null, true);
       if (corsOrigins.includes('*') || corsOrigins.includes(requestOrigin)) {
         return callback(null, true);

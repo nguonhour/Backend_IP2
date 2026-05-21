@@ -26,7 +26,11 @@ export class OptionalJwtAuthGuard implements CanActivate {
     const payload = this.verifyToken(token);
 
     if (payload) {
-      request.user = { id: payload.sub };
+      request.user = {
+        id: payload.sub,
+        email: payload.email,
+        role: payload.role,
+      };
     }
 
     return true;
