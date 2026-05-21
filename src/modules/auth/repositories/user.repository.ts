@@ -135,7 +135,10 @@ export class UserRepository {
   }
 
   async clearResetToken(userId: string): Promise<void> {
-    await this.userRepository.update({ id: userId }, { resetTokenHash: null, resetTokenExpiresAt: null });
+    await this.userRepository.update(
+      { id: userId },
+      { resetTokenHash: null, resetTokenExpiresAt: null },
+    );
   }
 
   async findByEmailVerificationTokenHash(
