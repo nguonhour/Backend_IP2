@@ -23,6 +23,17 @@ import type { AuthenticatedRequest } from '../../common/types/auth-request.type'
 export class ApplicationsController {
   constructor(private readonly applicationsService: ApplicationsService) {}
 
+  @Get()
+  async getAllApplications(
+    @Query('today') today?: string,
+    @Query('hired') hired?: string, 
+  ) {
+    return this.applicationsService.getAllApplications({
+      today: today === 'true',
+      hired: hired === 'true',
+    });
+  }
+
   @UseGuards(JwtAuthGuard)
   @Post()
   async applyToJob(
