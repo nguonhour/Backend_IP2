@@ -64,7 +64,9 @@ export class GoogleUseCase {
       throw new UnauthorizedException('Failed to verify token with Supabase');
     }
 
-    console.log(`[GoogleUseCase] received Google token for email=${email} role=${role}`);
+    console.log(
+      `[GoogleUseCase] received Google token for email=${email} role=${role}`,
+    );
 
     const normalizedRole = (role ?? '').toLowerCase();
 
@@ -80,7 +82,8 @@ export class GoogleUseCase {
             where: { user: { id: user.id } },
           });
           if (!existingProfile) {
-            const companyName = (displayName ?? email ?? 'Employer').trim() || 'Employer';
+            const companyName =
+              (displayName ?? email ?? 'Employer').trim() || 'Employer';
             const profile = this.employerProfileRepository.create({
               user: { id: user.id },
               companyName,
@@ -88,11 +91,17 @@ export class GoogleUseCase {
               avatarUrl,
             });
             await this.employerProfileRepository.save(profile);
-            console.log('Created missing EmployerProfile for existing user:', user.id);
+            console.log(
+              'Created missing EmployerProfile for existing user:',
+              user.id,
+            );
           }
         }
       } catch (err) {
-        console.error('Failed to ensure EmployerProfile for existing user:', err);
+        console.error(
+          'Failed to ensure EmployerProfile for existing user:',
+          err,
+        );
       }
 
       return {
@@ -122,7 +131,9 @@ export class GoogleUseCase {
         }) => Promise<{ data: typeof existing }>;
       };
 
-      console.log(`[GoogleUseCase] creating OAuth user for email=${email} role=${role}`);
+      console.log(
+        `[GoogleUseCase] creating OAuth user for email=${email} role=${role}`,
+      );
       const { data: created } = await repo.createOAuthUser({
         email,
         is_verified: true,
@@ -136,12 +147,15 @@ export class GoogleUseCase {
 
       user = created;
 
-      console.log(`[GoogleUseCase] created user id=${user.id} email=${user.email} role=${user.role?.name}`);
+      console.log(
+        `[GoogleUseCase] created user id=${user.id} email=${user.email} role=${user.role?.name}`,
+      );
 
       // If role is employer, create an initial EmployerProfile using available metadata
       if (normalizedRole === 'employer' && this.employerProfileRepository) {
         try {
-          const companyName = (displayName ?? email ?? 'Employer').trim() || 'Employer';
+          const companyName =
+            (displayName ?? email ?? 'Employer').trim() || 'Employer';
           const profile = this.employerProfileRepository.create({
             user: { id: user.id },
             companyName,
@@ -150,10 +164,16 @@ export class GoogleUseCase {
           });
 
           await this.employerProfileRepository.save(profile);
-          console.log('[GoogleUseCase] created EmployerProfile for user:', user.id);
+          console.log(
+            '[GoogleUseCase] created EmployerProfile for user:',
+            user.id,
+          );
         } catch (err) {
           // Log and continue; profile creation failure shouldn't block auth
-          console.error('Failed to create EmployerProfile for Google signup:', err);
+          console.error(
+            'Failed to create EmployerProfile for Google signup:',
+            err,
+          );
         }
       }
     }
@@ -167,7 +187,7 @@ export class GoogleUseCase {
     const tokens = this.tokenService.generateTokens(user);
     await this.userRepo.updateRefreshToken(user.id, tokens.refreshToken);
 
-    const isProd = process.env.NODE_ENV === 'production'
+    const isProd = process.env.NODE_ENV === 'production';
 
     res.cookie('refresh_token', tokens.refreshToken, {
       httpOnly: true,

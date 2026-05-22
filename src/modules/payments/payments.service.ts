@@ -194,7 +194,7 @@ export class PaymentsService {
       : '';
     const payout = options.payout ? this.toBase64(options.payout) : '';
 
-    // QR verification requires SHA-256 with HEX encoding (not SHA-512 base64)
+    // QR endpoint uses SHA512 + base64 (same as purchase endpoint)
     const hash = this.createPaywayHash(
       [
         reqTime,
@@ -217,9 +217,9 @@ export class PaymentsService {
         options.lifetime.toString(),
         options.qrImageTemplate ?? '',
       ],
-      'sha256',
-      'hex',
-    ); // Explicit SHA256 + HEX for QR API
+      'sha512',
+      'base64',
+    ); // SHA512 + base64 for QR API
 
     const response = await fetch(
       `${this.getPaywayBaseUrl()}/api/payment-gateway/v1/payments/generate-qr`,
@@ -254,8 +254,51 @@ export class PaymentsService {
       },
     );
 
+    // const response = await fetch(
+    //   `${this.getPaywayBaseUrl()}/api/payment-gateway/v1/payments/generate-qr`,
+    //   {
+    //     method: 'POST',
+    //     body: JSON.stringify(
+    //       this.filterPaywayParams({
+    //         hash,
+    //         req_time: reqTime,
+    //         merchant_id: this.config.get<string>('ABA_MERCHANT_ID') ?? '',
+    //         tran_id: options.transactionId,
+    //         amount: amountStr,
+    //         currency,
+    //         payment_option: options.paymentOption,
+    //         lifetime: options.lifetime,
+    //         qr_image_template: options.qrImageTemplate,
+    //         first_name: options.firstName,
+    //         last_name: options.lastName,
+    //         email: options.email,
+    //         phone: options.phone,
+    //         purchase_type: options.purchaseType,
+    //         items,
+    //         callback_url: callbackUrl,
+    //         return_deeplink: returnDeeplink,
+    //         custom_fields: customFields,
+    //         return_params: options.returnParams,
+    //         payout,
+    //       }),
+    //     ),
+    //     headers: { 'Content-Type': 'application/json' },
+    //     signal: AbortSignal.timeout(30000),
+    //   },
+    // );
+
     if (!response.ok) {
       const text = await response.text();
+      console.error(`[PaymentsService] API Call Failed`);
+      console.error(
+        `URL: ${this.getPaywayBaseUrl()}/api/payment-gateway/v1/payments/generate-qr`,
+      );
+      console.error(`Status: ${response.status} ${response.statusText}`);
+      console.error(`Response: ${text || '(empty)'}`);
+      console.error(
+        `Merchant ID: ${this.config.get<string>('ABA_MERCHANT_ID')}`,
+      );
+
       let responseBody: unknown = text;
       try {
         responseBody = JSON.parse(text);
@@ -845,6 +888,101 @@ export class PaymentsService {
         payment_status: 'APPROVED',
         transaction_id: cleanTransactionId,
       },
+    };
+  }
+
+  // ========== ADMIN METHODS ==========
+
+  async getAllPayments(
+    status?: string,
+    limit: number = 50,
+    offset: number = 0,
+  ): Promise<{ data: Payment[]; total: number }> {
+    const query = this.paymentRepository.createQueryBuilder('payment');
+
+    if (status) {
+      query.where('payment.status = :status', { status });
+    }
+
+    const total = await query.getCount();
+    const data = await query
+      .orderBy('payment.createdAt', 'DESC')
+      .limit(limit)
+      .offset(offset)
+      .getMany();
+
+    return { data, total };
+  }
+
+  async getPaymentById(id: string): Promise<Payment> {
+    const payment = await this.paymentRepository.findOne({
+      where: { id },
+      relations: ['employer'],
+    });
+    if (!payment) throw new NotFoundException('Payment not found');
+    return payment;
+  }
+
+  async updatePaymentStatusAdmin(
+    id: string,
+    status: PaymentStatus,
+  ): Promise<Payment> {
+    const payment = await this.paymentRepository.findOne({
+      where: { id },
+    });
+    if (!payment) throw new NotFoundException('Payment not found');
+    payment.status = status;
+    return this.paymentRepository.save(payment);
+  }
+
+  async deletePaymentAdmin(id: string): Promise<void> {
+    const payment = await this.paymentRepository.findOne({
+      where: { id },
+    });
+    if (!payment) throw new NotFoundException('Payment not found');
+    await this.paymentRepository.remove(payment);
+  }
+
+  async getPaymentStats(
+    startDate?: string,
+    endDate?: string,
+  ): Promise<{
+    totalTransactions: number;
+    totalAmount: number;
+    byStatus: Record<string, number>;
+    byMethod: Record<string, number>;
+  }> {
+    const query = this.paymentRepository.createQueryBuilder('payment');
+
+    if (startDate) {
+      query.andWhere('payment.createdAt >= :startDate', {
+        startDate: new Date(startDate),
+      });
+    }
+    if (endDate) {
+      query.andWhere('payment.createdAt <= :endDate', {
+        endDate: new Date(endDate),
+      });
+    }
+
+    const payments = await query.getMany();
+
+    const byStatus: Record<string, number> = {};
+    const byMethod: Record<string, number> = {};
+    let totalAmount = 0;
+
+    for (const payment of payments) {
+      byStatus[payment.status] = (byStatus[payment.status] || 0) + 1;
+      byMethod[payment.paymentMethod || 'unknown'] =
+        (byMethod[payment.paymentMethod || 'unknown'] || 0) + 1;
+      totalAmount += Number(payment.amount);
+    }
+
+    return {
+      totalTransactions: payments.length,
+      totalAmount,
+      byStatus,
+      byMethod,
     };
   }
 }

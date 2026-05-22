@@ -69,8 +69,8 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   getMe(@Req() req: AuthenticatedRequest) {
-    // return this.getMeUseCase.execute(req.user.id);
-    return { userId: req.user.id };
+    return this.getMeUseCase.execute(req.user.id);
+    // return { userId: req.user.id };
   }
 
   @Post('signup')
