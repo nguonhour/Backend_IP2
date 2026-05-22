@@ -16,4 +16,3 @@ export class ReportsService {
     return await this.repo.save(report);
   }
 }
-
