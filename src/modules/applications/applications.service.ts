@@ -43,7 +43,7 @@ export class ApplicationsService {
     const existing = await this.applicationRepository
       .createQueryBuilder('application')
       .innerJoin('application.student', 'student')
-      .where('student.id = :studentId', { student: { id: student.id } })
+      .where('student.id = :studentId', { studentId: student.id })
       .andWhere('application.job = :jobId', { jobId: dto.jobId })
       .getOne();
 
@@ -110,9 +110,10 @@ export class ApplicationsService {
     const query = this.applicationRepository
       .createQueryBuilder('application')
       .innerJoinAndSelect('application.job', 'job')
+      .innerJoinAndSelect('job.employer', 'employer')
       .innerJoinAndSelect('application.currentStatus', 'status')
       .innerJoin('application.student', 'studentProfile')
-      .where('studentProfile.id = :studentId', { student: { id: student.id } });
+      .where('studentProfile.id = :studentId', { studentId: student.id });
 
     if (status) {
       query.andWhere('status.name = :status', { status });
@@ -135,7 +136,7 @@ export class ApplicationsService {
       .leftJoinAndSelect('application.resume', 'resume')
       .leftJoinAndSelect('application.statusHistory', 'statusHistory')
       .innerJoin('application.student', 'studentProfile')
-      .where('studentProfile.id = :studentId', { student: { id: student.id } })
+      .where('studentProfile.id = :studentId', { studentId: student.id })
       .andWhere('application.id = :id', { id })
       .orderBy('statusHistory.changedAt', 'DESC')
       .getOne();
