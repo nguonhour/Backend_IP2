@@ -15,6 +15,7 @@ import { ApplicationStatusHistory } from './application-status-history.entity';
 import { UpdateApplicationStatusDto } from './dto/update-application-status.dto';
 import { Resume } from '../resumes/resume.entity';
 import { EmployerApplicationHistoryDto } from './dto/employer-application-history.dto';
+import { NotificationService } from '../notifications/notifications.service';
 // import { ApplicationStatus } from './application-status.enum';
 
 const INITIAL_APPLICATION_STATUS_NAMES = ['pending', 'applied'];
@@ -34,6 +35,7 @@ export class ApplicationsService {
     private applicationStatusHistoryRepository: Repository<ApplicationStatusHistory>,
     @InjectRepository(Resume)
     private resumeRepository: Repository<Resume>,
+    private notificationService: NotificationService,
   ) {}
 
   async applyToJob(userId: string, dto: CreateApplicationDto) {
@@ -54,7 +56,7 @@ export class ApplicationsService {
     // Get job
     const job = await this.jobRepository.findOne({
       where: { id: dto.jobId },
-      relations: ['status'],
+      relations: ['status', 'employer', 'employer.user'],
     });
     if (!job) {
       throw new NotFoundException('Job not found');
@@ -100,6 +102,16 @@ export class ApplicationsService {
         changedBy: { id: userId },
       }),
     );
+
+    if (job.employer?.user?.id) {
+      const studentName = `${student.firstName} ${student.lastName}`.trim();
+      await this.notificationService.create({
+        user_id: job.employer.user.id,
+        type: 'APPLICATION_CREATED',
+        reference_id: savedApplication.id,
+        message: `${studentName || 'A student'} applied to ${job.title}`,
+      });
+    }
 
     return this.getApplicationById(savedApplication.id, userId);
   }

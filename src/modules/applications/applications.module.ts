@@ -9,9 +9,11 @@ import { ApplicationStatus } from '../../entities/master/application-status.enti
 import { Job } from '../jobs/job.entity';
 import { Resume } from '../resumes/resume.entity';
 import { ApplicationsRepository } from './repository/applications.repository';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
+    NotificationsModule,
     TypeOrmModule.forFeature([
       ApplicationStatusHistory,
       Application,
