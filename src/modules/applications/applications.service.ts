@@ -15,6 +15,7 @@ import { ApplicationStatusHistory } from './application-status-history.entity';
 import { UpdateApplicationStatusDto } from './dto/update-application-status.dto';
 import { Resume } from '../resumes/resume.entity';
 import { EmployerApplicationHistoryDto } from './dto/employer-application-history.dto';
+import { NotificationService } from '../notifications/notifications.service';
 // import { ApplicationStatus } from './application-status.enum';
 
 const INITIAL_APPLICATION_STATUS_NAMES = ['pending', 'applied'];
@@ -34,6 +35,7 @@ export class ApplicationsService {
     private applicationStatusHistoryRepository: Repository<ApplicationStatusHistory>,
     @InjectRepository(Resume)
     private resumeRepository: Repository<Resume>,
+    private notificationService: NotificationService,
   ) {}
 
   async applyToJob(userId: string, dto: CreateApplicationDto) {
@@ -43,7 +45,7 @@ export class ApplicationsService {
     const existing = await this.applicationRepository
       .createQueryBuilder('application')
       .innerJoin('application.student', 'student')
-      .where('student.id = :studentId', { studentId: student.id })
+      .where('student.id = :studentId', { student: { id: student.id } })
       .andWhere('application.job = :jobId', { jobId: dto.jobId })
       .getOne();
 
@@ -54,7 +56,7 @@ export class ApplicationsService {
     // Get job
     const job = await this.jobRepository.findOne({
       where: { id: dto.jobId },
-      relations: ['status'],
+      relations: ['status', 'employer', 'employer.user'],
     });
     if (!job) {
       throw new NotFoundException('Job not found');
@@ -100,6 +102,16 @@ export class ApplicationsService {
         changedBy: { id: userId },
       }),
     );
+
+    if (job.employer?.user?.id) {
+      const studentName = `${student.firstName} ${student.lastName}`.trim();
+      await this.notificationService.create({
+        user_id: job.employer.user.id,
+        type: 'APPLICATION_CREATED',
+        reference_id: savedApplication.id,
+        message: `${studentName || 'A student'} applied to ${job.title}`,
+      });
+    }
 
     return this.getApplicationById(savedApplication.id, userId);
   }
@@ -167,10 +179,121 @@ export class ApplicationsService {
     }
 
     if (filters?.today) {
-      query.andWhere('DATE(applicant.appliedAt) = CURRENT_TIMESTAMP');
+      query.andWhere('DATE(applicant.appliedAt) = CURRENT_DATE');
     }
 
     return query.getMany();
+  }
+
+  async getEmployerDashboard(userId: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    const activeJobStatuses = ['published', 'active', 'open'];
+    const hiredStatuses = ['accepted', 'hired'];
+    const hireGoal = 10;
+
+    const scopedApplications = () =>
+      this.applicationRepository
+        .createQueryBuilder('application')
+        .innerJoin('application.job', 'job')
+        .innerJoin('job.employer', 'employer')
+        .innerJoin('employer.user', 'employerUser')
+        .where('employerUser.id = :userId', { userId });
+
+    const [
+      activeJobs,
+      activeJobsDelta,
+      totalApplicants,
+      newApplicantsToday,
+      hiredThisMonthResult,
+      pipelineRows,
+      recentApplications,
+    ] = await Promise.all([
+      this.jobRepository
+        .createQueryBuilder('job')
+        .innerJoin('job.employer', 'employer')
+        .innerJoin('employer.user', 'employerUser')
+        .innerJoin('job.status', 'status')
+        .where('employerUser.id = :userId', { userId })
+        .andWhere('LOWER(status.name) IN (:...activeJobStatuses)', {
+          activeJobStatuses,
+        })
+        .andWhere('(job.deadline IS NULL OR job.deadline >= CURRENT_DATE)')
+        .getCount(),
+      this.jobRepository
+        .createQueryBuilder('job')
+        .innerJoin('job.employer', 'employer')
+        .innerJoin('employer.user', 'employerUser')
+        .innerJoin('job.status', 'status')
+        .where('employerUser.id = :userId', { userId })
+        .andWhere('LOWER(status.name) IN (:...activeJobStatuses)', {
+          activeJobStatuses,
+        })
+        .andWhere('(job.deadline IS NULL OR job.deadline >= CURRENT_DATE)')
+        .andWhere('job.createdAt >= :startOfWeek', { startOfWeek })
+        .getCount(),
+      scopedApplications().getCount(),
+      scopedApplications()
+        .andWhere('application.appliedAt >= :today', { today })
+        .getCount(),
+      this.applicationStatusHistoryRepository
+        .createQueryBuilder('history')
+        .select('COUNT(DISTINCT application.id)', 'count')
+        .innerJoin('history.application', 'application')
+        .innerJoin('history.status', 'status')
+        .innerJoin('application.job', 'job')
+        .innerJoin('job.employer', 'employer')
+        .innerJoin('employer.user', 'employerUser')
+        .where('employerUser.id = :userId', { userId })
+        .andWhere('LOWER(status.name) IN (:...hiredStatuses)', {
+          hiredStatuses,
+        })
+        .andWhere('history.changedAt >= :startOfMonth', { startOfMonth })
+        .getRawOne<{ count: string }>(),
+      scopedApplications()
+        .innerJoin('application.currentStatus', 'status')
+        .select('LOWER(status.name)', 'status')
+        .addSelect('COUNT(application.id)', 'count')
+        .groupBy('LOWER(status.name)')
+        .getRawMany<{ status: string; count: string }>(),
+      this.applicationRepository
+        .createQueryBuilder('application')
+        .innerJoinAndSelect('application.job', 'job')
+        .innerJoin('job.employer', 'employer')
+        .innerJoin('employer.user', 'employerUser')
+        .innerJoinAndSelect('application.currentStatus', 'status')
+        .innerJoinAndSelect('application.student', 'student')
+        .leftJoinAndSelect('student.user', 'studentUser')
+        .leftJoinAndSelect('student.university', 'university')
+        .leftJoinAndSelect('student.major', 'major')
+        .leftJoinAndSelect('application.resume', 'resume')
+        .where('employerUser.id = :userId', { userId })
+        .orderBy('application.appliedAt', 'DESC')
+        .take(10)
+        .getMany(),
+    ]);
+
+    const hiredThisMonth = Number(hiredThisMonthResult?.count ?? 0);
+
+    return {
+      stats: {
+        activeJobs,
+        activeJobsDelta,
+        totalApplicants,
+        newApplicantsToday,
+        hiredThisMonth,
+        hiredGoalPercent: Math.min(
+          Math.round((hiredThisMonth / hireGoal) * 100),
+          100,
+        ),
+      },
+      pipeline: this.toPipelineCounts(pipelineRows),
+      recentApplications,
+    };
   }
 
   async getStudentApplicationHistory(applicationId: string, userId: string) {
@@ -481,6 +604,35 @@ export class ApplicationsService {
   private isAcceptedStatusName(statusName?: string | null) {
     const normalized = (statusName ?? '').trim().toLowerCase();
     return normalized === 'accepted' || normalized === 'hired';
+  }
+
+  private toPipelineCounts(rows: { status: string; count: string }[]) {
+    const pipeline = {
+      pending: 0,
+      reviewed: 0,
+      interviewing: 0,
+      offered: 0,
+      rejected: 0,
+    };
+
+    for (const row of rows) {
+      const status = (row.status ?? '').trim().toLowerCase();
+      const count = Number(row.count ?? 0);
+
+      if (status === 'pending' || status === 'applied') {
+        pipeline.pending += count;
+      } else if (status === 'reviewed') {
+        pipeline.reviewed += count;
+      } else if (status === 'interviewing') {
+        pipeline.interviewing += count;
+      } else if (status === 'offered') {
+        pipeline.offered += count;
+      } else if (status === 'rejected') {
+        pipeline.rejected += count;
+      }
+    }
+
+    return pipeline;
   }
 
   private async getResumeOwnedByUser(resumeId: string, userId: string) {

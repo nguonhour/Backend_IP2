@@ -178,4 +178,32 @@ export async function initializeDatabase(dataSource: DataSource) {
   } catch (err) {
     console.error('[InitDB] Error updating reports FK:', err);
   }
+  // rename referenceId to reference_id in notifications table
+  try {
+    await dataSource.query(`
+      ALTER TABLE notifications RENAME COLUMN "referenceId" TO reference_id
+    `);
+    console.log('[InitDB] Renamed referenceId to reference_id in notifications table');
+  } catch (err) {
+    console.error('[InitDB] Error renaming column in notifications table:', err);
+  }
+
+  //rename isRead to is_read in notifications table
+  try {
+    await dataSource.query(`
+      ALTER TABLE notifications RENAME COLUMN "isRead" TO is_read
+    `);
+    console.log('[InitDB] Renamed isRead to is_read in notifications table');
+  } catch (err) {
+    console.error('[InitDB] Error renaming column in notifications table:', err);
+  }
+  // rename createdAt to created_at in notifications table
+  try {
+    await dataSource.query(`
+      ALTER TABLE notifications RENAME COLUMN "createdAt" TO created_at
+    `);
+    console.log('[InitDB] Renamed createdAt to created_at in notifications table');
+  } catch (err) {
+    console.error('[InitDB] Error renaming column in notifications table:', err);
+  }
 }

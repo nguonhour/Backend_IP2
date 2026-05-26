@@ -53,6 +53,12 @@ export class ApplicationsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get('employer/dashboard')
+  async getEmployerDashboard(@Request() req: AuthenticatedRequest) {
+    return this.applicationsService.getEmployerDashboard(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('employer/inbox')
   async getEmployerInbox(
     @Request() req: AuthenticatedRequest,
