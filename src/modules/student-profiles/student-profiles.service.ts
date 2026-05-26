@@ -234,6 +234,31 @@ export class StudentProfilesService {
     return profile;
   }
 
+  async getProfileById(studentId: string): Promise<StudentProfile | null> {
+    const profile = await this.studentProfileRepository.findOne({
+      where: { id: studentId },
+      relations: [
+        'user',
+        'university',
+        'major',
+        'studentSkills',
+        'studentIndustries',
+      ],
+    });
+
+    if (!profile) {
+      return null;
+    }
+
+    const resumes = await this.resumeRepository.find({
+      where: { studentId: profile.id },
+      order: { createdAt: 'DESC' },
+    });
+
+    (profile as StudentProfile & { resumes?: Resume[] }).resumes = resumes;
+    return profile;
+  }
+
   async updateProfile(
     userId: string,
     dto: UpdateStudentDto,
