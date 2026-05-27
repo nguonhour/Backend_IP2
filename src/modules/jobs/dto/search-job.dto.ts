@@ -1,5 +1,5 @@
-import { Type as TransformType } from 'class-transformer';
-import { IsEnum, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Transform, Type as TransformType } from 'class-transformer';
+import { IsBoolean, IsEnum, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 import { TypeJob } from '../../../entities/master';
 import { Type } from 'class-transformer';
 
@@ -15,6 +15,19 @@ export class JobSearchDto {
   @IsOptional()
   @IsString()
   category?: string;
+
+  @IsOptional()
+  @IsString()
+  location?: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  blocked?: boolean;
 
   @IsOptional()
   @IsEnum(TypeJob)

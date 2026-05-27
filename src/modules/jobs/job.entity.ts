@@ -100,6 +100,9 @@ export class Job {
   @Column({ type: 'text', nullable: true })
   requirements: string;
 
+  @Column({ name:'is_blocked', type: 'boolean', default: false})
+  is_blocked: boolean
+
   @ManyToOne(() => JobStatus)
   @JoinColumn({ name: 'status_id' })
   status: JobStatus;
