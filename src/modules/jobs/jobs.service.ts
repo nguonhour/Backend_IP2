@@ -42,6 +42,11 @@ export class JobsService {
     private studentProfileRepository: Repository<StudentProfile>,
   ) {}
 
+  private escapeCsvValue(value: unknown) {
+    const text = String(value ?? '')
+    return `"${text.replace(/"/g, '""')}"`
+  }
+
   async getAllJobs(paginationDto: PaginationDto) {
     const { page, limit, deadlineSort } = paginationDto;
     const skip = (page - 1) * limit;
@@ -59,6 +64,48 @@ export class JobsService {
         approvalStatus: JobApprovalStatus.APPROVED,
       })
       .andWhere('(job.deadline IS NULL OR job.deadline >= NOW())')
+      .andWhere('(job.is_blocked IS FALSE)')
+      .skip(skip)
+      .take(limit);
+
+    if (deadlineSort) {
+      queryBuilder
+        .orderBy('job.deadline', deadlineSort.toUpperCase() as 'ASC' | 'DESC', 'NULLS LAST')
+        .addOrderBy('job.createdAt', 'DESC');
+    } else {
+      queryBuilder.orderBy('job.createdAt', 'DESC');
+    }
+
+    const [jobs, total] = await queryBuilder.getManyAndCount();
+
+    const mappedJobs = jobs.map((job) => ({
+      ...job,
+      isExpired: job.deadline ? new Date(job.deadline) < new Date() : false,
+    }));
+
+    return {
+      data: mappedJobs,
+      meta: {
+        totalItems: total,
+        itemCount: mappedJobs.length,
+        itemsPerPage: limit,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+      },
+    };
+  }
+
+  // For Admin
+  async getAllJobsForAdmin(paginationDto: PaginationDto) {
+    const { page, limit, deadlineSort } = paginationDto;
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.jobRepository
+      .createQueryBuilder('job')
+      .leftJoinAndSelect('job.category', 'category')
+      .leftJoinAndSelect('job.jobType', 'jobType')
+      .leftJoinAndSelect('job.status', 'status')
+      .leftJoinAndSelect('job.employer', 'employer')
       .skip(skip)
       .take(limit);
 
@@ -93,6 +140,47 @@ export class JobsService {
     };
   }
 
+  // For Admin
+  async setJobBlocked(id: string, blocked: boolean) {
+    const job = await this.jobRepository.findOne({
+      where: { id },
+      relations: ['category', 'jobType', 'status', 'employer'],
+    })
+
+    if (!job) {
+      throw new NotFoundException('Job not found')
+    }
+
+    job.is_blocked = blocked
+    job.updatedAt = new Date()
+
+    await this.jobRepository.save(job)
+
+    return job
+  }
+
+  async getJobByIdForAdmin(id: string) {
+    const job = await this.jobRepository
+      .createQueryBuilder('job')
+      .leftJoinAndSelect('job.category', 'category')
+      .leftJoinAndSelect('job.jobType', 'jobType')
+      .leftJoinAndSelect('job.status', 'status')
+      .leftJoinAndSelect('job.employer', 'employer')
+      .loadRelationCountAndMap('job.applicantsCount', 'job.applications')
+      .loadRelationCountAndMap('job.viewsCount', 'job.views')
+      .where('job.id = :id', { id })
+      .getOne();
+
+    if (!job) {
+      throw new NotFoundException('Job not found');
+    }
+
+    return {
+      ...job,
+      isExpired: job.deadline ? new Date(job.deadline) < new Date() : false,
+    };
+  }
+
   async getJobCategories() {
     return this.jobCategoryRepository.find({
       where: { isActive: true, employer: IsNull() },
@@ -115,6 +203,7 @@ export class JobsService {
         visibleStatuses: PUBLIC_JOB_STATUS_NAMES,
       })
       .andWhere('(job.deadline IS NULL OR job.deadline >= NOW())')
+      .andWhere('(job.is_blocked IS FALSE)')
       .getOne();
     if (!job) {
       throw new NotFoundException('Job not found');
@@ -536,6 +625,12 @@ export class JobsService {
       });
     }
 
+    if (location) {
+      qb.andWhere('(job.location ILIKE :location OR employer.location ILIKE :location)', {
+        location: `%${location}%`,
+      });
+    }
+
     if (type) {
       qb.andWhere('jobType.name = :type', { type });
     }
@@ -572,4 +667,187 @@ export class JobsService {
       },
     };
   }
+
+  async searchJobsForAdmin(query: JobSearchDto) {
+    const {
+      keyword,
+      category,
+      location,
+      type,
+      minSalary,
+      status,
+      blocked,
+      deadlineSort,
+      page = 1,
+      limit = 10,
+    } = query;
+    const skip = (page - 1) * limit;
+
+    const qb = this.jobRepository
+      .createQueryBuilder('job')
+      .leftJoinAndSelect('job.category', 'category')
+      .leftJoinAndSelect('job.jobType', 'jobType')
+      .leftJoinAndSelect('job.status', 'status')
+      .leftJoinAndSelect('job.employer', 'employer');
+
+    if (keyword) {
+      qb.andWhere(
+        '(job.title ILIKE :keyword OR job.description ILIKE :keyword OR employer.companyName ILIKE :keyword)',
+        { keyword: `%${keyword}%` },
+      );
+    }
+
+    if (category) {
+      qb.andWhere('category.name ILIKE :category', {
+        category: `%${category}%`,
+      });
+    }
+
+    if (location) {
+      qb.andWhere('(job.location ILIKE :location OR employer.location ILIKE :location)', {
+        location: `%${location}%`,
+      });
+    }
+
+    if (type) {
+      qb.andWhere('jobType.name = :type', { type });
+    }
+
+    if (status) {
+      qb.andWhere('LOWER(status.name) = LOWER(:status)', { status });
+    }
+
+    if (blocked !== undefined) {
+      qb.andWhere('job.is_blocked = :blocked', { blocked });
+    }
+
+    if (minSalary !== undefined) {
+      qb.andWhere('job.salaryMin >= :minSalary', { minSalary });
+    }
+
+    if (deadlineSort) {
+      qb.orderBy('job.deadline', deadlineSort.toUpperCase() as 'ASC' | 'DESC', 'NULLS LAST')
+        .addOrderBy('job.createdAt', 'DESC');
+    } else {
+      qb.orderBy('job.createdAt', 'DESC');
+    }
+
+    const [jobs, total] = await qb.skip(skip).take(limit).getManyAndCount();
+
+    const mappedJobs = jobs.map((job) => ({
+      ...job,
+      isExpired: job.deadline ? new Date(job.deadline) < new Date() : false,
+    }));
+
+    return {
+      data: mappedJobs,
+      meta: {
+        totalItems: total,
+        itemCount: mappedJobs.length,
+        itemsPerPage: limit,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+      },
+    };
+  }
+
+  async exportJobsCsvForAdmin(query: JobSearchDto) {
+    const {
+      keyword,
+      category,
+      location,
+      type,
+      minSalary,
+      status,
+      blocked,
+      deadlineSort,
+    } = query
+
+    const qb = this.jobRepository
+      .createQueryBuilder('job')
+      .leftJoinAndSelect('job.category', 'category')
+      .leftJoinAndSelect('job.jobType', 'jobType')
+      .leftJoinAndSelect('job.status', 'status')
+      .leftJoinAndSelect('job.employer', 'employer')
+
+    if (keyword) {
+      qb.andWhere(
+        '(job.title ILIKE :keyword OR job.description ILIKE :keyword OR employer.companyName ILIKE :keyword)',
+        { keyword: `%${keyword}%` },
+      )
+    }
+
+    if (category) {
+      qb.andWhere('category.name ILIKE :category', { category: `%${category}%` })
+    }
+
+    if (location) {
+      qb.andWhere('(job.location ILIKE :location OR employer.location ILIKE :location)', {
+        location: `%${location}%`,
+      })
+    }
+
+    if (type) {
+      qb.andWhere('jobType.name = :type', { type })
+    }
+
+    if (status) {
+      qb.andWhere('LOWER(status.name) = LOWER(:status)', { status })
+    }
+
+    if (blocked !== undefined) {
+      qb.andWhere('job.is_blocked = :blocked', { blocked })
+    }
+
+    if (minSalary !== undefined) {
+      qb.andWhere('job.salaryMin >= :minSalary', { minSalary })
+    }
+
+    if (deadlineSort) {
+      qb.orderBy('job.deadline', deadlineSort.toUpperCase() as 'ASC' | 'DESC', 'NULLS LAST')
+        .addOrderBy('job.createdAt', 'DESC')
+    } else {
+      qb.orderBy('job.createdAt', 'DESC')
+    }
+
+    const jobs = await qb.getMany()
+
+    const headers = [
+      'Title',
+      'Company',
+      'Category',
+      'Type',
+      'Status',
+      'Blocked',
+      'Salary Min',
+      'Salary Max',
+      'Currency',
+      'Openings',
+      'Location',
+      'Posted Date',
+      'Deadline',
+    ]
+
+    const rows = jobs.map((job) => [
+      job.title,
+      job.employer?.companyName,
+      job.category?.name,
+      job.jobType?.name,
+      job.status?.name,
+      job.is_blocked ? 'Yes' : 'No',
+      job.salaryMin,
+      job.salaryMax,
+      job.currency,
+      job.numberOfOpenings,
+      job.location ?? job.employer?.location,
+      job.createdAt,
+      job.deadline,
+    ])
+
+    return [
+      headers.join(','),
+      ...rows.map((row) => row.map((value) => this.escapeCsvValue(value)).join(',')),
+    ].join('\n')
+  }
+
 }

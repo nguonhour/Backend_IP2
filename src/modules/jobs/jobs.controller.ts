@@ -23,6 +23,10 @@ import { JobSearchDto } from './dto/search-job.dto';
 import { PaginationDto } from './dto/pagination-job.dto';
 import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
 import { Audit } from '../../common/decorators/audit.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import type { Response } from 'express'
+import { Res } from '@nestjs/common'
 
 @Controller('jobs')
 export class JobsController {
@@ -85,6 +89,43 @@ export class JobsController {
     return this.jobsService.getJobCategories();
   }
 
+  @Roles('ADMIN')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('admin/all')
+  async getAllJobsForAdmin(@Query() paginationDto: PaginationDto) {
+    return this.jobsService.getAllJobsForAdmin(paginationDto);
+  }
+
+  @Roles('ADMIN')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('admin/search')
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async searchJobsForAdmin(@Query() query: JobSearchDto) {
+    return this.jobsService.searchJobsForAdmin(query);
+  }
+
+  @Roles('ADMIN')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('admin/export')
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async exportJobsForAdmin(
+    @Query() query: JobSearchDto,
+    @Res() res: Response,
+  ) {
+    const csv = await this.jobsService.exportJobsCsvForAdmin(query)
+
+    res.header('Content-Type', 'text/csv; charset=utf-8')
+    res.attachment(`admin-jobs-${new Date().toISOString().slice(0, 10)}.csv`)
+    res.send(csv)
+  }
+
+  @Roles('ADMIN')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('admin/:id')
+  async getJobByIdForAdmin(@Param('id', ParseUUIDPipe) id: string) {
+    return this.jobsService.getJobByIdForAdmin(id);
+  }
+
   @Get(':id')
   async getJobById(@Param('id', ParseUUIDPipe) id: string) {
     return this.jobsService.getJobById(id);
@@ -132,5 +173,19 @@ export class JobsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.jobsService.deleteJob(req.user.id, id);
+  }
+
+  @Roles('ADMIN')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Patch(':id/block')
+  async blockJob(@Param('id', ParseUUIDPipe) id: string) {
+    return this.jobsService.setJobBlocked(id, true)
+  }
+
+  @Roles('ADMIN')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Patch(':id/unblock')
+  async unblockJob(@Param('id', ParseUUIDPipe) id: string) {
+    return this.jobsService.setJobBlocked(id, false)
   }
 }

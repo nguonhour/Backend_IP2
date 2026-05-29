@@ -26,6 +26,8 @@ import { GetMeUseCase } from '../use-case/getMe_usecase';
 import { VerifyEmailUseCase } from '../use-case/verify-email.usecase';
 import { ResendVerificationUseCase } from '../use-case/resend-verification.usecase';
 import { ResendVerificationDto } from '../dto/resend-verification.dto';
+import { ChangePasswordUseCase } from '../use-case/change-password.usecase';
+import { ChangePasswordDto } from '../dto/change-password.dto';
 
 type AuthUserResponse = {
   id: string;
@@ -64,6 +66,7 @@ export class AuthController {
     private readonly getMeUseCase: GetMeUseCase,
     private readonly verifyEmailUseCase: VerifyEmailUseCase,
     private readonly resendVerificationUseCase: ResendVerificationUseCase,
+    private readonly changePasswordUseCase: ChangePasswordUseCase,
   ) {}
 
   @Get('me')
@@ -158,6 +161,19 @@ export class AuthController {
       body.newPassword,
     );
     return { message: 'Password reset successful' };
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  changePassword(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.changePasswordUseCase.execute(
+      req.user.id,
+      dto.oldPassword,
+      dto.newPassword,
+    );
   }
 
   @Post('logout')
