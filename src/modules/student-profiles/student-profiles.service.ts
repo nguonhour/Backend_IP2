@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { IsNull, QueryFailedError, Repository } from 'typeorm';
 import { StudentProfile } from './student-profile.entity';
 import { SavedJob } from '../jobs/saved-job.entity';
 import { Job } from '../jobs/job.entity';
@@ -135,31 +135,41 @@ export class StudentProfilesService {
 
     // Auto-create profile if it doesn't exist (for CV saves without prior profile creation)
     if (!student) {
+      const profile = new StudentProfile();
+      profile.firstName = 'Student';
+      profile.lastName = '';
+      profile.user = user;
+
       try {
-        const user = await this.userRepository.findOne({ where: { id: userId }, relations: ['role'] });
-        if (!user) {
-          throw new NotFoundException(`User not found for id ${userId}`);
-        }
-
-        // Only auto-create a StudentProfile if the user's role is STUDENT
-        if (!user.role || (user.role.name ?? '').toUpperCase() !== 'STUDENT') {
-          throw new NotFoundException(`Student profile not found for user ${userId}`);
-        }
-
-        const profile = new StudentProfile();
-        profile.firstName = 'Student';
-        profile.lastName = '';
-        profile.user = user;
-
         student = await this.studentProfileRepository.save(profile);
         console.log('Auto-created StudentProfile:', student.id);
       } catch (err) {
+        if (this.isUniqueViolation(err)) {
+          student = await this.studentProfileRepository.findOne({
+            where: { user: { id: userId } },
+            relations: ['user'],
+          });
+
+          if (student) {
+            return student;
+          }
+        }
+
         console.error('Failed to auto-create StudentProfile:', err);
-        throw new NotFoundException(`Student profile not found for user ${userId}`);
+        throw new NotFoundException(
+          `Student profile not found for user ${userId}`,
+        );
       }
     }
 
     return student;
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    return (
+      error instanceof QueryFailedError &&
+      (error.driverError as { code?: string } | undefined)?.code === '23505'
+    );
   }
 
   async getProfile(userId: string): Promise<StudentProfile | null> {

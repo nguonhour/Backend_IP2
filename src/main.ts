@@ -5,11 +5,17 @@ import { ClassSerializerInterceptor } from '@nestjs/common';
 import { initializeDatabase } from './database/init-hook';
 import { DataSource } from 'typeorm';
 import cookieParser from 'cookie-parser';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
-  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+  const reflector = app.get(Reflector);
+  app.useGlobalInterceptors(
+    new ClassSerializerInterceptor(reflector),
+    app.get(AuditInterceptor),
+  );
 
   // Initialize database constraints
   try {
@@ -54,6 +60,8 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
   app.use(cookieParser());
 

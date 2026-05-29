@@ -61,6 +61,17 @@ export class EmployerProfile {
   @Column({ type: 'varchar', nullable: true })
   phone: string | null;
 
+  @Column({
+    name: 'current_plan_type',
+    type: 'varchar',
+    nullable: true,
+    default: 'basic',
+  })
+  currentPlanType: string;
+
+  @Column({ name: 'job_post_limit', type: 'int', nullable: true, default: 2 })
+  jobPostLimit: number;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
 

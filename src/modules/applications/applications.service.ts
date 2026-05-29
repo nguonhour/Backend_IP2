@@ -15,7 +15,9 @@ import { ApplicationStatusHistory } from './application-status-history.entity';
 import { UpdateApplicationStatusDto } from './dto/update-application-status.dto';
 import { Resume } from '../resumes/resume.entity';
 import { EmployerApplicationHistoryDto } from './dto/employer-application-history.dto';
-import { NotificationService } from '../notifications/notifications.service';
+import { NotificationService } from '../notifications/notification.service';
+import { NotificationType } from '../notifications/notification-type.enum';
+import { NotificationChannel } from '../notifications/notification-channel.enum';
 // import { ApplicationStatus } from './application-status.enum';
 
 const INITIAL_APPLICATION_STATUS_NAMES = ['pending', 'applied'];
@@ -105,12 +107,22 @@ export class ApplicationsService {
 
     if (job.employer?.user?.id) {
       const studentName = `${student.firstName} ${student.lastName}`.trim();
-      await this.notificationService.create({
-        user_id: job.employer.user.id,
-        type: 'APPLICATION_CREATED',
-        reference_id: savedApplication.id,
-        message: `${studentName || 'A student'} applied to ${job.title}`,
-      });
+      await this.notificationService.createNotification(
+        job.employer.user.id,
+        NotificationType.APPLICATION_RECEIVED,
+        'New Application',
+        `${studentName || 'A student'} applied to ${job.title}`,
+        NotificationChannel.BOTH,
+        {
+          referenceId: savedApplication.id,
+          metadata: {
+            applicationId: savedApplication.id,
+            jobId: job.id,
+            jobTitle: job.title,
+            studentName,
+          },
+        },
+      );
     }
 
     return this.getApplicationById(savedApplication.id, userId);
@@ -160,10 +172,7 @@ export class ApplicationsService {
     return application;
   }
 
-  async getAllApplications(filters?: {
-    today?: boolean;
-    hired?: boolean;
-  }) {
+  async getAllApplications(filters?: { today?: boolean; hired?: boolean }) {
     const query = this.applicationRepository
       .createQueryBuilder('applicant')
       .leftJoinAndSelect('applicant.currentStatus', 'status');

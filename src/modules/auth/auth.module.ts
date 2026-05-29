@@ -24,7 +24,13 @@ import { ResendVerificationUseCase } from './use-case/resend-verification.usecas
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Role, StudentProfile, EmployerProfile, Resume]),
+    TypeOrmModule.forFeature([
+      User,
+      Role,
+      StudentProfile,
+      EmployerProfile,
+      Resume,
+    ]),
   ],
   controllers: [AuthController],
   providers: [

@@ -5,7 +5,9 @@ import { User } from '../users/user.entity';
 import { Job } from '../jobs/job.entity';
 import { Application } from '../applications/application.entity';
 import { Payment } from '../payments/payment.entity';
+import { PaymentStatus } from '../payments/enum/payment-status.enum';
 import { Report } from '../reports/report.entity';
+import { ReportStatus } from '../reports/report-status.enum';
 
 @Injectable()
 export class AdminService {
@@ -47,14 +49,14 @@ export class AdminService {
         .getCount(),
       this.reportRepository.count(),
       this.reportRepository.count({
-        where: { status: 'OPEN' },
+        where: { status: ReportStatus.OPEN },
       }),
     ]);
 
     const revenueResult = await this.paymentRepository
       .createQueryBuilder('payment')
       .select('SUM(payment.amount)', 'total')
-      .where('payment.status = :status', { status: 'SUCCESS' })
+      .where('payment.status = :status', { status: PaymentStatus.PAID })
       .getRawOne<{ total: string }>();
 
     const totalRevenue = parseFloat(revenueResult?.total ?? '0');

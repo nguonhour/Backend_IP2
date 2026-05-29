@@ -14,6 +14,7 @@ import { StudentProfile } from '../../modules/student-profiles/student-profile.e
 import { EmployerProfile } from '../../modules/employer-profiles/employer-profile.entity';
 import { Notification } from '../notifications/notification.entity';
 import { ApplicationStatusHistory } from '../applications/application-status-history.entity';
+import { UserStatus } from './user-status.enum';
 
 @Entity('users')
 export class User {
@@ -40,6 +41,14 @@ export class User {
 
   @Column({ name: 'is_verified', type: 'boolean', default: false })
   isVerified: boolean;
+
+  @Column({
+    name: 'status',
+    type: 'varchar',
+    enum: UserStatus,
+    default: UserStatus.ACTIVE,
+  })
+  status: UserStatus;
 
   @Column({ name: 'refresh_token_hash', type: 'varchar', nullable: true })
   refreshTokenHash: string | null;
@@ -81,5 +90,4 @@ export class User {
 
   @OneToMany(() => ApplicationStatusHistory, (history) => history.changedBy)
   applicationStatusChanges: ApplicationStatusHistory[];
-
 }

@@ -85,9 +85,6 @@ export class StudentProfile {
   @OneToMany(() => SavedJob, (savedJob) => savedJob.student)
   savedJobs: SavedJob[];
 
-  @OneToMany(() => Report, (report) => report.reporter)
-  reports: Report[];
-
   @OneToMany(() => SearchHistory, (history) => history.student)
   searchHistory: SearchHistory[];
 }

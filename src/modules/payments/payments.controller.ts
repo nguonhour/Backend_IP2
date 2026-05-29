@@ -21,7 +21,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
-import { UpdatePaymentDto } from './dto/update-payment.dto';
+import { AdminUpdatePaymentDto, UpdatePaymentDto } from './dto/update-payment.dto';
 import { CreateCheckoutDto } from './dto/create-checkout.dto';
 import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
 import type { AbaPushbackPayload } from './interfaces/aba-pushback-payload.interface';
@@ -228,6 +228,18 @@ export class PaymentsController {
     return this.paymentsService.getAllPayments(status, limit, offset);
   }
 
+  @Post('admin')
+  @UseGuards(JwtAuthGuard)
+  async createPaymentAdmin(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: CreatePaymentDto,
+  ) {
+    if (req.user.role !== 'ADMIN') {
+      throw new ForbiddenException('Admin access required');
+    }
+    return this.paymentsService.createPaymentAdmin(dto);
+  }
+
   @Get('admin/:id')
   @UseGuards(JwtAuthGuard)
   async getPaymentById(
@@ -239,6 +251,19 @@ export class PaymentsController {
       throw new ForbiddenException('Admin access required');
     }
     return this.paymentsService.getPaymentById(id);
+  }
+
+  @Patch('admin/:id')
+  @UseGuards(JwtAuthGuard)
+  async updatePaymentAdmin(
+    @Request() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AdminUpdatePaymentDto,
+  ) {
+    if (req.user.role !== 'ADMIN') {
+      throw new ForbiddenException('Admin access required');
+    }
+    return this.paymentsService.updatePaymentAdmin(id, dto);
   }
 
   @Patch('admin/:id/status')
@@ -253,8 +278,7 @@ export class PaymentsController {
       throw new ForbiddenException('Admin access required');
     }
 
-    // Use the body.status to update payment
-    return this.paymentsService.updateStatusByTransactionRef(id, body.status);
+    return this.paymentsService.updatePaymentStatusAdmin(id, body.status);
   }
 
   @Delete('admin/:id')
