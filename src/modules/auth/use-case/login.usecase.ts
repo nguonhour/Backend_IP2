@@ -47,7 +47,7 @@ export class LoginUseCase {
 
     // Set refresh token as httpOnly cookie. Use secure+samesite settings
     // appropriate for production vs local development.
-    const isProd = process.env.NODE_ENV === 'production'
+    const isProd = process.env.NODE_ENV === 'production';
 
     res.cookie('refresh_token', tokens.refreshToken, {
       httpOnly: true,

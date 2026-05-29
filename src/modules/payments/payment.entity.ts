@@ -37,6 +37,12 @@ export class Payment {
   @Column({ name: 'plan_name', nullable: true })
   planName: string;
 
+  @Column({ name: 'plan_type', nullable: true })
+  planType: string;
+
+  @Column({ name: 'job_post_limit', nullable: true, type: 'int', default: 2 })
+  jobPostLimit: number;
+
   @Column({ name: 'expires_at', type: 'timestamp', nullable: true })
   expiresAt: Date | null;
 

@@ -3,11 +3,12 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-  Query,
+  // Query,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { Job } from './job.entity';
+import { JobApprovalStatus } from './job-approval-status.enum';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { UpdateJobStatusDto } from './dto/update-job-status.dto';
@@ -59,6 +60,9 @@ export class JobsService {
       .where('LOWER(status.name) IN (:...visibleStatuses)', {
         visibleStatuses: PUBLIC_JOB_STATUS_NAMES,
       })
+      .andWhere('job.approvalStatus = :approvalStatus', {
+        approvalStatus: JobApprovalStatus.APPROVED,
+      })
       .andWhere('(job.deadline IS NULL OR job.deadline >= NOW())')
       .andWhere('(job.is_blocked IS FALSE)')
       .skip(skip)
@@ -107,7 +111,11 @@ export class JobsService {
 
     if (deadlineSort) {
       queryBuilder
-        .orderBy('job.deadline', deadlineSort.toUpperCase() as 'ASC' | 'DESC', 'NULLS LAST')
+        .orderBy(
+          'job.deadline',
+          deadlineSort.toUpperCase() as 'ASC' | 'DESC',
+          'NULLS LAST',
+        )
         .addOrderBy('job.createdAt', 'DESC');
     } else {
       queryBuilder.orderBy('job.createdAt', 'DESC');
@@ -208,6 +216,26 @@ export class JobsService {
 
   async createJob(userId: string, dto: CreateJobDto) {
     const employer = await this.getEmployerProfileByUserId(userId);
+
+    // Check job posting limit
+    const activeJobCount = await this.jobRepository.count({
+      where: {
+        employer: { id: employer.id },
+        status: { name: 'active' },
+      },
+    });
+
+    // If limit is not unlimited (-1) and already reached the limit
+    if (
+      employer.jobPostLimit &&
+      employer.jobPostLimit !== -1 &&
+      activeJobCount >= employer.jobPostLimit
+    ) {
+      throw new ForbiddenException(
+        `You have reached the maximum job posting limit of ${employer.jobPostLimit} for your current plan. Please upgrade your plan to post more jobs.`,
+      );
+    }
+
     await this.assertJobRelationsExist(dto, employer.id);
     const job = this.jobRepository.create({
       ...dto,
@@ -215,6 +243,7 @@ export class JobsService {
       category: dto.categoryId ? { id: dto.categoryId } : undefined,
       jobType: dto.jobTypeId ? { id: dto.jobTypeId } : undefined,
       status: dto.statusId ? { id: dto.statusId } : undefined,
+      approvalStatus: JobApprovalStatus.PENDING_APPROVAL,
     });
 
     return this.jobRepository.save(job);
@@ -561,7 +590,15 @@ export class JobsService {
   }
 
   async searchJobs(query: JobSearchDto) {
-    const { keyword, category, location, type, minSalary, deadlineSort, page = 1, limit = 10 } = query;
+    const {
+      keyword,
+      category,
+      type,
+      minSalary,
+      deadlineSort,
+      page = 1,
+      limit = 10,
+    } = query;
     const skip = (page - 1) * limit;
 
     const qb = this.jobRepository
@@ -603,8 +640,11 @@ export class JobsService {
     }
 
     if (deadlineSort) {
-      qb.orderBy('job.deadline', deadlineSort.toUpperCase() as 'ASC' | 'DESC', 'NULLS LAST')
-        .addOrderBy('job.createdAt', 'DESC');
+      qb.orderBy(
+        'job.deadline',
+        deadlineSort.toUpperCase() as 'ASC' | 'DESC',
+        'NULLS LAST',
+      ).addOrderBy('job.createdAt', 'DESC');
     } else {
       qb.orderBy('job.createdAt', 'DESC');
     }

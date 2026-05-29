@@ -22,6 +22,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JobSearchDto } from './dto/search-job.dto';
 import { PaginationDto } from './dto/pagination-job.dto';
 import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
+import { Audit } from '../../common/decorators/audit.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import type { Response } from 'express'
@@ -40,7 +41,14 @@ export class JobsController {
   @UseGuards(JwtAuthGuard)
   @Get('me/posted')
   async getMyPostedJobs(@Request() req: AuthenticatedRequest) {
-    return this.jobsService.getMyPostedJobs(req.user.id);
+    // return this.jobsService.getMyPostedJobs(req.user.id);
+    try {
+      const jobs = await this.jobsService.getMyPostedJobs(req.user.id);
+      return jobs;
+    } catch (error) {
+      console.error(error); // This will show the actual error in your terminal
+      throw error; // Rethrow the error to be handled by NestJS's global exception filter
+    }
   }
 
   @UseGuards(JwtAuthGuard)
@@ -125,6 +133,11 @@ export class JobsController {
 
   // Employer (HR) only - Create, Update, Delete jobs
   @UseGuards(JwtAuthGuard)
+  @Audit({
+    action: 'CREATE',
+    module: 'jobs',
+    entityType: 'Job',
+  })
   @Post()
   async createJob(
     @Request() req: AuthenticatedRequest,

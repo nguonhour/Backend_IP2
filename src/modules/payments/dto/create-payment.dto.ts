@@ -4,10 +4,14 @@ import {
   IsNumber,
   IsOptional,
   MaxLength,
+  IsUUID,
+  IsInt,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { PaymentStatus } from '../enum/payment-status.enum';
 
 export class CreatePaymentDto {
+  @Type(() => Number)
   @IsNumber()
   amount: number;
 
@@ -34,4 +38,22 @@ export class CreatePaymentDto {
   @IsOptional()
   @MaxLength(100)
   planName?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  planType?: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @IsOptional()
+  jobPostLimit?: number;
+
+  @IsString()
+  @IsOptional()
+  expiresAt?: string;
+
+  @IsUUID()
+  @IsOptional()
+  employerId?: string;
 }

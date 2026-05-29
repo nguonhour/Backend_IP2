@@ -35,6 +35,15 @@ export class CreateCheckoutDto {
   planName?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  planType?: string;
+
+  @IsOptional()
+  @IsNumber()
+  jobPostLimit?: number;
+
+  @IsOptional()
   @IsIn(['USD', 'KHR'])
   currency?: 'USD' | 'KHR';
 

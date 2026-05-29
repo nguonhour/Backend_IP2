@@ -90,14 +90,14 @@ export async function initializeDatabase(dataSource: DataSource) {
         END IF;
       END $$;
     `);
-    await dataSource.query(
-      `DROP INDEX IF EXISTS "IDX_m_job_categories_name"`,
-    );
-    await dataSource.query(
-      `ALTER TABLE m_job_categories
+    await dataSource.query(`DROP INDEX IF EXISTS "IDX_m_job_categories_name"`);
+    await dataSource
+      .query(
+        `ALTER TABLE m_job_categories
        ADD CONSTRAINT "FK_m_job_categories_employer"
        FOREIGN KEY (employer_id) REFERENCES employer_profiles(id) ON DELETE CASCADE`,
-    ).catch(() => undefined);
+      )
+      .catch(() => undefined);
     console.log('[InitDB] Ensured employer-owned job categories are supported');
   } catch (err) {
     console.error('[InitDB] Error ensuring employer category columns:', err);
@@ -139,7 +139,7 @@ export async function initializeDatabase(dataSource: DataSource) {
 
   try {
     // Check if the constraint exists before trying to recreate
-    const result = await dataSource.query(
+    const result = await dataSource.query<{ count: number }[]>(
       `SELECT COUNT(*) FROM information_schema.table_constraints 
        WHERE table_name = 'resumes' AND constraint_name = 'FK_student_profile'`,
     );
@@ -157,7 +157,95 @@ export async function initializeDatabase(dataSource: DataSource) {
     console.error('[InitDB] Error creating FK constraint:', err);
     // Continue anyway - the constraint might already exist or be unnecessary
   }
-  
+
+  try {
+    await dataSource.query(
+      `CREATE TABLE IF NOT EXISTS reports (id uuid PRIMARY KEY DEFAULT gen_random_uuid())`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS user_id uuid`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS job_id uuid`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS type varchar DEFAULT 'OTHER'`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS description text`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS reason text`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS status varchar DEFAULT 'OPEN'`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS admin_notes text`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS resolved_by_admin_id uuid`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS resolved_at timestamp`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS metadata jsonb`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS created_at timestamp DEFAULT CURRENT_TIMESTAMP`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT CURRENT_TIMESTAMP`,
+    );
+
+    await dataSource.query(`
+      UPDATE reports
+      SET description = COALESCE(description, reason, 'Legacy report'),
+          reason = COALESCE(reason, description, 'Legacy report'),
+          type = COALESCE(type, 'OTHER'),
+          status = COALESCE(status, 'OPEN')
+    `);
+
+    await dataSource.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'reports' AND column_name = 'reporter_id'
+        ) THEN
+          UPDATE reports r
+          SET user_id = sp.user_id
+          FROM student_profiles sp
+          WHERE r.user_id IS NULL AND r.reporter_id = sp.id;
+
+          ALTER TABLE reports ALTER COLUMN reporter_id DROP NOT NULL;
+        END IF;
+
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'reports' AND column_name = 'report_type_id'
+        ) THEN
+          ALTER TABLE reports ALTER COLUMN report_type_id DROP NOT NULL;
+        END IF;
+      END $$;
+    `);
+
+    await dataSource.query(
+      `ALTER TABLE reports ALTER COLUMN description SET NOT NULL`,
+    );
+    await dataSource.query(`ALTER TABLE reports ALTER COLUMN type SET NOT NULL`);
+    await dataSource.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_REPORTS_USER_CREATED" ON reports (user_id, created_at)`,
+    );
+    await dataSource.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_REPORTS_STATUS_CREATED" ON reports (status, created_at)`,
+    );
+    console.log('[InitDB] Ensured reports table supports current schema');
+  } catch (err) {
+    console.error('[InitDB] Error ensuring reports table columns:', err);
+  }
+
   // Fix reports foreign key constraint:
   // when a job is deleted, keep reports and set job_id to NULL
   try {
@@ -177,33 +265,5 @@ export async function initializeDatabase(dataSource: DataSource) {
     console.log('[InitDB] Updated reports.job_id FK to SET NULL');
   } catch (err) {
     console.error('[InitDB] Error updating reports FK:', err);
-  }
-  // rename referenceId to reference_id in notifications table
-  try {
-    await dataSource.query(`
-      ALTER TABLE notifications RENAME COLUMN "referenceId" TO reference_id
-    `);
-    console.log('[InitDB] Renamed referenceId to reference_id in notifications table');
-  } catch (err) {
-    console.error('[InitDB] Error renaming column in notifications table:', err);
-  }
-
-  //rename isRead to is_read in notifications table
-  try {
-    await dataSource.query(`
-      ALTER TABLE notifications RENAME COLUMN "isRead" TO is_read
-    `);
-    console.log('[InitDB] Renamed isRead to is_read in notifications table');
-  } catch (err) {
-    console.error('[InitDB] Error renaming column in notifications table:', err);
-  }
-  // rename createdAt to created_at in notifications table
-  try {
-    await dataSource.query(`
-      ALTER TABLE notifications RENAME COLUMN "createdAt" TO created_at
-    `);
-    console.log('[InitDB] Renamed createdAt to created_at in notifications table');
-  } catch (err) {
-    console.error('[InitDB] Error renaming column in notifications table:', err);
   }
 }

@@ -11,7 +11,10 @@ import { Repository } from 'typeorm';
 import { Payment } from './payment.entity';
 import { EmployerProfile } from '../employer-profiles/employer-profile.entity';
 import { CreatePaymentDto } from './dto/create-payment.dto';
-import { UpdatePaymentDto } from './dto/update-payment.dto';
+import {
+  AdminUpdatePaymentDto,
+  UpdatePaymentDto,
+} from './dto/update-payment.dto';
 import { PayWayAPIError, PayWay } from 'aba-payway';
 import type {
   GenerateQROptions,
@@ -358,6 +361,7 @@ export class PaymentsService {
   ): Promise<Payment | null> {
     const payment = await this.paymentRepository.findOne({
       where: { transactionRef },
+      relations: ['employer'],
     });
 
     if (!payment) return null;
@@ -365,6 +369,30 @@ export class PaymentsService {
       return payment;
     }
     payment.status = status;
+
+    // If payment is now PAID and we have employer info, update their plan
+    if (
+      status === PaymentStatus.PAID &&
+      payment.employer &&
+      payment.planType &&
+      payment.jobPostLimit !== undefined
+    ) {
+      try {
+        await this.employerRepository.update(
+          { id: payment.employer.id },
+          {
+            currentPlanType: payment.planType,
+            jobPostLimit: payment.jobPostLimit,
+          },
+        );
+      } catch (err) {
+        this.logger.warn(
+          'Failed to update employer profile on payment success',
+          err,
+        );
+      }
+    }
+
     return this.paymentRepository.save(payment);
   }
 
@@ -523,6 +551,8 @@ export class PaymentsService {
       currency: string;
       paymentMethod?: string;
       planName?: string;
+      planType?: string;
+      jobPostLimit?: number;
       expiresAt?: Date;
     },
   ) {
@@ -542,6 +572,14 @@ export class PaymentsService {
         existing.planName = opts.planName;
         changed = true;
       }
+      if (opts.planType && !existing.planType) {
+        existing.planType = opts.planType;
+        changed = true;
+      }
+      if (opts.jobPostLimit && !existing.jobPostLimit) {
+        existing.jobPostLimit = opts.jobPostLimit;
+        changed = true;
+      }
       if (opts.expiresAt && !existing.expiresAt) {
         existing.expiresAt = opts.expiresAt;
         changed = true;
@@ -558,6 +596,8 @@ export class PaymentsService {
       paymentMethod: opts.paymentMethod,
       transactionRef: opts.transactionId,
       planName: opts.planName,
+      planType: opts.planType,
+      jobPostLimit: opts.jobPostLimit,
       expiresAt: opts.expiresAt ?? null,
     });
 
@@ -575,6 +615,35 @@ export class PaymentsService {
       paymentMethod: dto.paymentMethod,
       transactionRef: dto.transactionRef,
       planName: dto.planName,
+    });
+
+    return this.paymentRepository.save(payment);
+  }
+
+  async createPaymentAdmin(dto: CreatePaymentDto) {
+    if (!dto.employerId) {
+      throw new BadRequestException('Employer ID is required');
+    }
+
+    const employer = await this.employerRepository.findOne({
+      where: { id: dto.employerId },
+    });
+
+    if (!employer) {
+      throw new NotFoundException('Employer profile not found');
+    }
+
+    const payment = this.paymentRepository.create({
+      employer: employer ? { id: employer.id } : undefined,
+      amount: dto.amount,
+      currency: dto.currency,
+      status: dto.status ?? PaymentStatus.PENDING,
+      paymentMethod: dto.paymentMethod,
+      transactionRef: dto.transactionRef,
+      planName: dto.planName,
+      planType: dto.planType,
+      jobPostLimit: dto.jobPostLimit,
+      expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
     });
 
     return this.paymentRepository.save(payment);
@@ -664,6 +733,8 @@ export class PaymentsService {
       email?: string;
       phone?: string;
       paymentOption?: PaymentOption;
+      planType?: string;
+      jobPostLimit?: number;
     },
   ) {
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -697,6 +768,8 @@ export class PaymentsService {
         currency,
         paymentMethod: paymentOption,
         planName,
+        planType: opts?.planType,
+        jobPostLimit: opts?.jobPostLimit,
         expiresAt,
       });
 
@@ -898,7 +971,9 @@ export class PaymentsService {
     limit: number = 50,
     offset: number = 0,
   ): Promise<{ data: Payment[]; total: number }> {
-    const query = this.paymentRepository.createQueryBuilder('payment');
+    const query = this.paymentRepository
+      .createQueryBuilder('payment')
+      .leftJoinAndSelect('payment.employer', 'employer');
 
     if (status) {
       query.where('payment.status = :status', { status });
@@ -932,6 +1007,46 @@ export class PaymentsService {
     });
     if (!payment) throw new NotFoundException('Payment not found');
     payment.status = status;
+    return this.paymentRepository.save(payment);
+  }
+
+  async updatePaymentAdmin(
+    id: string,
+    dto: AdminUpdatePaymentDto,
+  ): Promise<Payment> {
+    const payment = await this.paymentRepository.findOne({
+      where: { id },
+      relations: ['employer'],
+    });
+
+    if (!payment) throw new NotFoundException('Payment not found');
+
+    if (dto.employerId !== undefined) {
+      if (dto.employerId === null) {
+        throw new BadRequestException('Employer ID is required');
+      }
+
+      const employer = await this.employerRepository.findOne({
+        where: { id: dto.employerId },
+      });
+      if (!employer) throw new NotFoundException('Employer profile not found');
+      payment.employer = employer;
+    }
+
+    if (dto.amount !== undefined) payment.amount = dto.amount;
+    if (dto.currency !== undefined) payment.currency = dto.currency;
+    if (dto.status !== undefined) payment.status = dto.status;
+    if (dto.paymentMethod !== undefined)
+      payment.paymentMethod = dto.paymentMethod;
+    if (dto.transactionRef !== undefined)
+      payment.transactionRef = dto.transactionRef;
+    if (dto.planName !== undefined) payment.planName = dto.planName;
+    if (dto.planType !== undefined) payment.planType = dto.planType;
+    if (dto.jobPostLimit !== undefined) payment.jobPostLimit = dto.jobPostLimit;
+    if (dto.expiresAt !== undefined) {
+      payment.expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : null;
+    }
+
     return this.paymentRepository.save(payment);
   }
 

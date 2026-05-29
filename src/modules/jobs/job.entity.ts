@@ -18,6 +18,7 @@ import { SavedJob } from './saved-job.entity';
 import { JobSkill } from './job-skill.entity';
 import { Report } from '../reports/report.entity';
 import { JobHistory } from './job-history.entity';
+import { JobApprovalStatus } from './job-approval-status.enum';
 
 @Entity('jobs')
 export class Job {
@@ -106,6 +107,17 @@ export class Job {
   @ManyToOne(() => JobStatus)
   @JoinColumn({ name: 'status_id' })
   status: JobStatus;
+
+  @Column({
+    name: 'approval_status',
+    type: 'varchar',
+    enum: JobApprovalStatus,
+    default: JobApprovalStatus.PENDING_APPROVAL,
+  })
+  approvalStatus: JobApprovalStatus;
+
+  @Column({ name: 'rejection_reason', type: 'text', nullable: true })
+  rejectionReason: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
