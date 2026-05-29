@@ -45,7 +45,7 @@ export class ApplicationsService {
     const existing = await this.applicationRepository
       .createQueryBuilder('application')
       .innerJoin('application.student', 'student')
-      .where('student.id = :studentId', { student: { id: student.id } })
+      .where('student.id = :studentId', { studentId: student.id })
       .andWhere('application.job = :jobId', { jobId: dto.jobId })
       .getOne();
 
@@ -75,7 +75,6 @@ export class ApplicationsService {
       })
       .orderBy(
         `CASE
-          WHEN LOWER(status.name) = 'pending' THEN 0
           WHEN LOWER(status.name) = 'applied' THEN 1
           ELSE 2
         END`,
