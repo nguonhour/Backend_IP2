@@ -19,8 +19,10 @@ export class ApplicationStatusesSeeder implements Seeder {
     const statuses = [
       'Pending',
       'Reviewed',
+      'Shortlisted',
       'Interviewing',
       'Offered',
+      'Hired',
       'Rejected',
     ];
 

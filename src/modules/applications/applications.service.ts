@@ -361,7 +361,7 @@ export class ApplicationsService {
         pipeline.pending.push(app);
       } else if (statusName === 'reviewed') {
         pipeline.reviewed.push(app);
-      } else if (statusName === 'interviewing') {
+      } else if (this.isInterviewStatusName(statusName)) {
         pipeline.interviewing.push(app);
       } else if (statusName === 'offered') {
         pipeline.offered.push(app);
@@ -480,7 +480,14 @@ export class ApplicationsService {
   ) {
     const application = await this.applicationRepository.findOne({
       where: { id },
-      relations: ['job', 'job.employer', 'job.employer.user', 'currentStatus'],
+      relations: [
+        'job',
+        'job.employer',
+        'job.employer.user',
+        'currentStatus',
+        'student',
+        'student.user',
+      ],
     });
 
     if (!application) {
@@ -551,7 +558,96 @@ export class ApplicationsService {
       }),
     );
 
+    if (dto.sendNotification) {
+      try {
+        await this.notifyStudentAboutStatusChange(application, nextStatus, dto);
+      } catch (error) {
+        console.error('Failed to create application status notification:', error);
+      }
+    }
+
     return this.getEmployerApplicationById(id, userId);
+  }
+
+  private async notifyStudentAboutStatusChange(
+    application: Application,
+    nextStatus: ApplicationStatus,
+    dto: UpdateApplicationStatusDto,
+  ) {
+    const studentUserId = application.student?.user?.id;
+
+    if (!studentUserId) {
+      return;
+    }
+
+    const statusName = nextStatus.name;
+    const normalizedStatus = statusName.toLowerCase();
+    const studentName = `${application.student?.firstName ?? ''} ${
+      application.student?.lastName ?? ''
+    }`.trim();
+    const jobTitle = application.job?.title ?? 'your application';
+    const interviewText = this.formatInterviewDetails(dto.interviewDetails);
+
+    const title =
+      this.isInterviewStatusName(normalizedStatus)
+        ? 'Interview Scheduled'
+        : 'Application Status Updated';
+
+    const message =
+      this.isInterviewStatusName(normalizedStatus)
+        ? `Your interview for ${jobTitle} has been scheduled${interviewText}.`
+        : `Your application for ${jobTitle} was moved to ${statusName}.`;
+
+    await this.notificationService.createNotification(
+      studentUserId,
+      this.getNotificationTypeForStatus(normalizedStatus),
+      title,
+      message,
+      NotificationChannel.BOTH,
+      {
+        referenceId: application.id,
+        metadata: {
+          applicationId: application.id,
+          jobId: application.job?.id,
+          jobTitle,
+          studentName,
+          status: statusName,
+          interviewDetails: dto.interviewDetails ?? null,
+        },
+      },
+    );
+  }
+
+  private getNotificationTypeForStatus(statusName: string): NotificationType {
+    if (this.isInterviewStatusName(statusName)) {
+      return NotificationType.APPLICATION_INTERVIEW_SCHEDULED;
+    }
+
+    if (this.isAcceptedStatusName(statusName)) {
+      return NotificationType.APPLICATION_ACCEPTED;
+    }
+
+    if (statusName === 'rejected') {
+      return NotificationType.APPLICATION_REJECTED;
+    }
+
+    return NotificationType.APPLICATION_RECEIVED;
+  }
+
+  private formatInterviewDetails(
+    details?: UpdateApplicationStatusDto['interviewDetails'],
+  ) {
+    if (!details) {
+      return '';
+    }
+
+    const schedule = [details.date, details.time].filter(Boolean).join(' at ');
+
+    if (schedule && details.meetingType) {
+      return ` on ${schedule} via ${details.meetingType}`;
+    }
+
+    return schedule ? ` on ${schedule}` : '';
   }
 
   private async getStudentProfileByUserId(userId: string) {
@@ -614,6 +710,18 @@ export class ApplicationsService {
     return normalized === 'accepted' || normalized === 'hired';
   }
 
+  private isInterviewStatusName(statusName?: string | null) {
+    const normalized = (statusName ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, '_');
+
+    return (
+      normalized === 'interview_schedule' ||
+      normalized === 'interview_scheduled'
+    );
+  }
+
   private toPipelineCounts(rows: { status: string; count: string }[]) {
     const pipeline = {
       pending: 0,
@@ -631,7 +739,7 @@ export class ApplicationsService {
         pipeline.pending += count;
       } else if (status === 'reviewed') {
         pipeline.reviewed += count;
-      } else if (status === 'interviewing') {
+      } else if (this.isInterviewStatusName(status)) {
         pipeline.interviewing += count;
       } else if (status === 'offered') {
         pipeline.offered += count;
