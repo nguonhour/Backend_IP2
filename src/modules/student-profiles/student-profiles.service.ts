@@ -6,12 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-<<<<<<< HEAD
-import { IsNull, QueryFailedError, Repository } from 'typeorm';
-=======
-import { In, Repository } from 'typeorm';
->>>>>>> db9dca9 (Add language management features: create language entity and student_languages table; update student_profiles to include language data; implement language-related DTOs and service methods.)
-import { StudentProfile } from './student-profile.entity';
+import { In, QueryFailedError, Repository } from 'typeorm';
 import { SavedJob } from '../jobs/saved-job.entity';
 import { Job } from '../jobs/job.entity';
 import { Resume } from '../resumes/resume.entity';
@@ -22,6 +17,8 @@ import { Skill } from '../../entities/master';
 import { Industry } from '../../entities/master/industry.entity';
 import { AddStudentSkillDto } from './dto/add-student-skill.dto';
 import { StudentSkill } from './student-skill.entity';
+import { StudentProfile } from './student-profile.entity';
+import { StudentLanguage } from './student-language.entity';
 import { AddStudentIndustryDto } from './dto/add-student-industry.dto';
 import { StudentIndustry } from './student-industry.entity';
 import { UpdateStudentDto } from './dto/update-student.dto';
@@ -592,12 +589,12 @@ export class StudentProfilesService {
       }))
       .filter((l) => l.language.length > 0 || l.level.length > 0);
 
-    const existingStudentLanguages = await this.studentProfileRepository
+    const existingStudentLanguages: StudentLanguage[] = await this.studentProfileRepository
       .createQueryBuilder('sp')
       .leftJoinAndSelect('sp.studentLanguages', 'studentLanguage')
       .where('sp.id = :id', { id: student.id })
       .getOne()
-      .then((s) => (s ? s.studentLanguages : []));
+      .then((s) => (s ? (s.studentLanguages as StudentLanguage[]) : []));
 
     // If no languages provided, delete all existing
     if (normalized.length === 0) {
@@ -632,7 +629,9 @@ export class StudentProfilesService {
     });
 
     // current language ids
-    const currentLangIds = new Set(existingStudentLanguages.map((sl: any) => sl.languageId));
+    const currentLangIds = new Set(
+      existingStudentLanguages.map((sl) => sl.languageId),
+    );
 
     const toInsert = Array.from(target.entries())
       .filter(([langId]) => !currentLangIds.has(langId))
