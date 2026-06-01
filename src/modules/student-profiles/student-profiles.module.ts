@@ -5,6 +5,7 @@ import { StudentProfilesService } from './student-profiles.service';
 import { StudentProfile } from './student-profile.entity';
 import { SearchHistory } from './search-history.entity';
 import { StudentSkill } from './student-skill.entity';
+import { StudentLanguage } from './student-language.entity';
 import { StudentIndustry } from './student-industry.entity';
 import { SavedJob } from '../jobs/saved-job.entity';
 import { Job } from '../jobs/job.entity';
@@ -13,6 +14,7 @@ import { University } from '../../entities/master/university.entity';
 import { Major } from '../../entities/master/major.entity';
 import { User } from '../users/user.entity';
 import { Skill } from '../../entities/master/skill.entity';
+import { Language } from '../../entities/master/language.entity';
 import { Industry } from '../../entities/master/industry.entity';
 import { StudentProfilesRepository } from './repository/student-profiles.repository';
 
@@ -22,6 +24,7 @@ import { StudentProfilesRepository } from './repository/student-profiles.reposit
       StudentProfile,
       SearchHistory,
       StudentSkill,
+      StudentLanguage,
       StudentIndustry,
       SavedJob,
       Job,
@@ -30,6 +33,7 @@ import { StudentProfilesRepository } from './repository/student-profiles.reposit
       Major,
       User,
       Skill,
+      Language,
       Industry,
     ]),
   ],

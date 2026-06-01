@@ -34,6 +34,18 @@ export async function initializeDatabase(dataSource: DataSource) {
       `ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS external_user_id varchar`,
     );
     await dataSource.query(
+      `ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS about_me text`,
+    );
+    await dataSource.query(
+      `ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS experiences jsonb DEFAULT '[]'::jsonb`,
+    );
+    await dataSource.query(
+      `ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS expertise jsonb DEFAULT '[]'::jsonb`,
+    );
+    await dataSource.query(
+      `ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS languages jsonb DEFAULT '[]'::jsonb`,
+    );
+    await dataSource.query(
       `CREATE UNIQUE INDEX IF NOT EXISTS "IDX_student_profiles_external_user_id" ON student_profiles (external_user_id)`,
     );
     console.log(
