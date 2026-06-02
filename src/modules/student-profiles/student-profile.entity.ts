@@ -13,6 +13,7 @@ import { User } from '../users/user.entity';
 import { University } from '../../entities/master/university.entity';
 import { Major } from '../../entities/master/major.entity';
 import { StudentSkill } from './student-skill.entity';
+import { StudentLanguage } from './student-language.entity';
 import { Application } from '../applications/application.entity';
 import { SavedJob } from '../jobs/saved-job.entity';
 import { SearchHistory } from './search-history.entity';
@@ -64,6 +65,18 @@ export class StudentProfile {
   @Column({ name: 'avatar_url', type: 'varchar', nullable: true })
   avatarUrl: string;
 
+  @Column({ name: 'about_me', type: 'text', nullable: true })
+  aboutMe: string | null;
+
+  @Column({ name: 'experiences', type: 'jsonb', nullable: true, default: [] })
+  experiences: Array<{ title: string; description: string }> | null;
+
+  @Column({ name: 'expertise', type: 'jsonb', nullable: true, default: [] })
+  expertise: string[] | null;
+
+  @Column({ name: 'languages', type: 'jsonb', nullable: true, default: [] })
+  languages: Array<{ language: string; level: string }> | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
 
@@ -72,6 +85,12 @@ export class StudentProfile {
 
   @OneToMany(() => StudentSkill, (studentSkill) => studentSkill.student)
   studentSkills: StudentSkill[];
+
+  @OneToMany(
+    () => StudentLanguage,
+    (studentLanguage) => studentLanguage.student,
+  )
+  studentLanguages: StudentLanguage[];
 
   @OneToMany(
     () => StudentIndustry,

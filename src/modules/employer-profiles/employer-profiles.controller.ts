@@ -23,6 +23,11 @@ export class EmployerProfilesController {
     private readonly employerProfilesService: EmployerProfilesService,
   ) {}
 
+  @Get('partners')
+  async getAllPartners() {
+    return this.employerProfilesService.getAllPartnets();
+  }
+
   @UseGuards(JwtAuthGuard)
   @Post()
   async createProfile(

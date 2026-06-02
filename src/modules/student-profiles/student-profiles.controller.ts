@@ -17,6 +17,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
 import { AddStudentSkillDto } from './dto/add-student-skill.dto';
 import { AddStudentIndustryDto } from './dto/add-student-industry.dto';
+import { SetStudentSkillDto } from './dto/set-student-skill.dto';
+import { SetStudentLanguageDto } from './dto/set-student-language.dto';
 
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller('students')
@@ -74,12 +76,30 @@ export class StudentProfilesController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Put('me/skills')
+  setSkills(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: SetStudentSkillDto,
+  ): Promise<{ message: string; added: number; removed: number }> {
+    return this.studentProfilesService.setSkills(req.user.id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post('me/industries')
   addIndustries(
     @Request() req: AuthenticatedRequest,
     @Body() dto: AddStudentIndustryDto,
   ) {
     return this.studentProfilesService.addIndustries(req.user.id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put('me/languages')
+  setLanguages(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: SetStudentLanguageDto,
+  ) {
+    return this.studentProfilesService.setLanguages(req.user.id, dto);
   }
 
   @UseGuards(JwtAuthGuard)

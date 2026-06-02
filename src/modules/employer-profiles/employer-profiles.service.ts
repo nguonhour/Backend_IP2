@@ -214,4 +214,18 @@ export class EmployerProfilesService {
       categories,
     };
   }
+
+  async findAll() {
+    return this.employerProfileRepository.find();
+  }
+
+  async getAllPartnets() {
+    const profiles = await this.employerProfileRepository.find()
+
+    return profiles.map((profile) => ({
+      logo: profile.avatarUrl,
+      companyName: profile.companyName,
+      website: profile.website,
+    }));
+  }
 }
