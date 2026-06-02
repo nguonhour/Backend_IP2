@@ -285,7 +285,17 @@ export class ApplicationsService {
         .getMany(),
     ]);
 
-    const hiredThisMonth = Number(hiredThisMonthResult?.count ?? 0);
+    const hiredThisMonth = await this.applicationRepository
+        .createQueryBuilder('application')
+        .innerJoin('application.currentStatus', 'status')
+        .innerJoin('application.job', 'job')
+        .innerJoin('job.employer', 'employer')
+        .innerJoin('employer.user', 'employerUser')
+        .where('employerUser.id = :userId', { userId })
+        .andWhere('LOWER(status.name) = :status', {
+          status: 'hired',
+        })
+        .getCount();
 
     return {
       stats: {
@@ -294,10 +304,7 @@ export class ApplicationsService {
         totalApplicants,
         newApplicantsToday,
         hiredThisMonth,
-        hiredGoalPercent: Math.min(
-          Math.round((hiredThisMonth / hireGoal) * 100),
-          100,
-        ),
+        hiredGoalPercent: Math.min(Math.round((hiredThisMonth / hireGoal) * 100),100,)
       },
       pipeline: this.toPipelineCounts(pipelineRows),
       recentApplications,
