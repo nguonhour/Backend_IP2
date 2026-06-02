@@ -6,6 +6,7 @@ import { Skill } from './skill.entity';
 import { University } from './university.entity';
 import { Major } from './major.entity';
 import { Industry } from './industry.entity';
+import { Language } from './language.entity';
 import { JobCategory } from './job-category.entity';
 import { JobType } from './job-type.entity';
 import { JobStatus } from './job-status.entity';
@@ -21,6 +22,7 @@ import { MasterService } from './master.service';
       University,
       Major,
       Industry,
+      Language,
       JobCategory,
       JobType,
       JobStatus,

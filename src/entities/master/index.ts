@@ -3,6 +3,7 @@ export * from './skill.entity';
 export * from './university.entity';
 export * from './major.entity';
 export * from './industry.entity';
+export * from './language.entity';
 export * from './job-category.entity';
 export * from './job-type.entity';
 export * from './job-status.entity';

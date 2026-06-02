@@ -34,4 +34,9 @@ export class MasterController {
   async getMajors() {
     return this.masterService.getMajors();
   }
+
+  @Get('languages')
+  async getLanguages() {
+    return this.masterService.getLanguages();
+  }
 }

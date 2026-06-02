@@ -7,6 +7,7 @@ import { University } from './university.entity';
 import { Major } from './major.entity';
 import { JobCategory } from './job-category.entity';
 import { JobType } from './job-type.entity';
+import { Language } from './language.entity';
 
 @Injectable()
 export class MasterService {
@@ -23,6 +24,8 @@ export class MasterService {
     private universityRepository: Repository<University>,
     @InjectRepository(Major)
     private majorRepository: Repository<Major>,
+    @InjectRepository(Language)
+    private languageRepository: Repository<Language>,
   ) {}
 
   async getJobStatuses() {
@@ -67,6 +70,14 @@ export class MasterService {
 
   async getMajors() {
     return this.majorRepository.find({
+      where: { isActive: true },
+      select: ['id', 'name'],
+      order: { name: 'ASC' },
+    });
+  }
+
+  async getLanguages() {
+    return this.languageRepository.find({
       where: { isActive: true },
       select: ['id', 'name'],
       order: { name: 'ASC' },
