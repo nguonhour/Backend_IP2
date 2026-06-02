@@ -17,6 +17,7 @@ import { StudentLanguage } from './student-language.entity';
 import { Application } from '../applications/application.entity';
 import { SavedJob } from '../jobs/saved-job.entity';
 import { SearchHistory } from './search-history.entity';
+// import { Resume } from '../resumes/resume.entity';
 import { Exclude, Expose } from 'class-transformer';
 import { StudentIndustry } from './student-industry.entity';
 import { Report } from '../reports/report.entity';

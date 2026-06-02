@@ -62,7 +62,7 @@ export class Notification {
   @Column({ name: 'reference_id', type: 'uuid', nullable: true })
   referenceId: string;
 
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', nullable: true, name: 'recipient_email' })
   recipientEmail: string;
 
   @Column({ type: 'timestamp', nullable: true, name: 'read_at' })

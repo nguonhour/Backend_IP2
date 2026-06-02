@@ -15,9 +15,9 @@ import { NotificationService } from './notification.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
 import {
-  MarkNotificationAsReadDto,
+  // MarkNotificationAsReadDto,
   MarkMultipleNotificationsReadDto,
-  DeleteNotificationDto,
+  // DeleteNotificationDto,
 } from './dto/notification.dto';
 
 @Controller('notifications')
@@ -68,7 +68,10 @@ export class NotificationController {
     @Param('id', ParseUUIDPipe) notificationId: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.notificationService.getNotificationById(notificationId, req.user.id);
+    return this.notificationService.getNotificationById(
+      notificationId,
+      req.user.id,
+    );
   }
 
   /**
@@ -90,7 +93,10 @@ export class NotificationController {
     @Body() dto: MarkMultipleNotificationsReadDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.notificationService.markMultipleAsRead(dto.notificationIds, req.user.id);
+    return this.notificationService.markMultipleAsRead(
+      dto.notificationIds,
+      req.user.id,
+    );
   }
 
   /**
@@ -109,7 +115,10 @@ export class NotificationController {
     @Param('id', ParseUUIDPipe) notificationId: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    await this.notificationService.deleteNotification(notificationId, req.user.id);
+    await this.notificationService.deleteNotification(
+      notificationId,
+      req.user.id,
+    );
     return { message: 'Notification deleted' };
   }
 
