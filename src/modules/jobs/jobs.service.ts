@@ -610,7 +610,13 @@ export class JobsService {
       .where('LOWER(status.name) IN (:...visibleStatuses)', {
         visibleStatuses: PUBLIC_JOB_STATUS_NAMES,
       })
-      .andWhere('(job.deadline IS NULL OR job.deadline >= NOW())');
+      .andWhere('job.approvalStatus = :approvalStatus', {
+        approvalStatus: JobApprovalStatus.APPROVED,
+      })
+      .andWhere('(job.deadline IS NULL OR job.deadline >= NOW())')
+      .andWhere('(job.is_blocked IS FALSE)')
+      .skip(skip)
+      .take(limit);
 
     if (keyword) {
       qb.andWhere(
@@ -625,11 +631,11 @@ export class JobsService {
       });
     }
 
-    if (location) {
-      qb.andWhere('(job.location ILIKE :location OR employer.location ILIKE :location)', {
-        location: `%${location}%`,
-      });
-    }
+    // if (location) {
+    //   qb.andWhere('(job.location ILIKE :location OR employer.location ILIKE :location)', {
+    //     location: `%${location}%`,
+    //   });
+    // }
 
     if (type) {
       qb.andWhere('jobType.name = :type', { type });
