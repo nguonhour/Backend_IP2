@@ -47,6 +47,28 @@ export class JobsService {
     return `"${text.replace(/"/g, '""')}"`;
   }
 
+  private parseLocalDate(value?: string | null): Date | null {
+    if (!value) return null;
+    const normalized = value.slice(0, 10);
+    const [year, month, day] = normalized.split('-').map(Number);
+    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+      return null;
+    }
+    return new Date(year, month - 1, day);
+  }
+
+  private assertDeadlineIsNotBeforeToday(deadline?: string | null) {
+    const deadlineDate = this.parseLocalDate(deadline);
+    if (!deadlineDate) return;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (deadlineDate < today) {
+      throw new BadRequestException('Application deadline cannot be earlier than today.');
+    }
+  }
+
   async getAllJobs(paginationDto: PaginationDto) {
     const { page, limit, deadlineSort } = paginationDto;
     const skip = (page - 1) * limit;
@@ -240,6 +262,7 @@ export class JobsService {
       );
     }
 
+    this.assertDeadlineIsNotBeforeToday(dto.deadline);
     await this.assertJobRelationsExist(dto, employer.id);
     const job = this.jobRepository.create({
       ...dto,
@@ -307,6 +330,7 @@ export class JobsService {
     }
 
     this.ensureEmployerOwnsJob(job, userId);
+    this.assertDeadlineIsNotBeforeToday(dto.deadline);
     await this.assertJobRelationsExist(dto, job.employer.id);
     await this.recordJobHistory(job);
 
