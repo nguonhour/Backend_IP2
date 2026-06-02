@@ -4,7 +4,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 
 import { Repository } from 'typeorm';
 
-import * as jobsData from '../data/jobs.json';
+// Import JSON using require to avoid needing --resolveJsonModule in tsconfig
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const jobsData: any = require('../data/jobs.json');
 import { Job } from '../../../modules/jobs/job.entity';
 import { JobCategory, JobStatus, JobType } from '../../../entities/master';
 import { EmployerProfile } from '../../../modules/employer-profiles/employer-profile.entity';

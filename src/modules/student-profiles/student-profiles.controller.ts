@@ -49,6 +49,12 @@ export class StudentProfilesController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get(':studentId')
+  getProfileById(@Param('studentId', ParseUUIDPipe) studentId: string) {
+    return this.studentProfilesService.getProfileById(studentId);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Put('me')
   updateProfile(
     @Request() req: AuthenticatedRequest,
