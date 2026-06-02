@@ -95,6 +95,10 @@ export class UserRepository {
     );
   }
 
+  async clearRefreshToken(userId: string): Promise<void> {
+    await this.userRepository.update({ id: userId }, { refreshTokenHash: null });
+  }
+
   async updatePasswordHash(
     userId: string,
     passwordHash: string,

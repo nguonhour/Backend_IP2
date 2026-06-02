@@ -14,7 +14,10 @@ import { AdminService } from './admin.service';
 import { UserManagementService } from './user-management.service';
 import { JobModerationService } from './job-moderation.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { SuspendUserDto } from './dto/admin-user-management.dto';
+import {
+  SuspendUserDto,
+  UpdateUserStatusDto,
+} from './dto/admin-user-management.dto';
 import { RejectJobDto } from './dto/job-moderation.dto';
 import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
 import { Audit } from '../../common/decorators/audit.decorator';
@@ -41,15 +44,26 @@ export class AdminController {
   async getUsers(
     @Query('status') status?: string,
     @Query('search') search?: string,
+    @Query('role') role?: string,
+    @Query('universityId') universityId?: string,
+    @Query('majorId') majorId?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
     return this.userManagementService.getUsers(
       status as any,
       search,
+      role,
+      universityId,
+      majorId,
       parseInt(page || '1', 10),
       parseInt(limit || '10', 10),
     );
+  }
+
+  @Get('users/stats')
+  async getUserStats() {
+    return this.userManagementService.getStats();
   }
 
   @Get('users/pending-approvals')
@@ -77,6 +91,25 @@ export class AdminController {
   @Get('users/:id')
   async getUser(@Param('id', ParseUUIDPipe) userId: string) {
     return this.userManagementService.getUserById(userId);
+  }
+
+  @Patch('users/:id/status')
+  @Audit({
+    action: 'UPDATE',
+    module: 'users',
+    entityType: 'User',
+  })
+  async updateUserStatus(
+    @Param('id', ParseUUIDPipe) userId: string,
+    @Body() dto: UpdateUserStatusDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.userManagementService.updateUserStatus(
+      userId,
+      dto.status,
+      dto.reason,
+      req.user.id,
+    );
   }
 
   @Patch('users/:id/suspend')

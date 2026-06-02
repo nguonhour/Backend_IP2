@@ -10,6 +10,7 @@ import { TokenService } from '../services/token.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EmployerProfile } from '../../employer-profiles/employer-profile.entity';
+import { UserStatus } from '../../users/user-status.enum';
 
 @Injectable()
 export class GoogleUseCase {
@@ -76,6 +77,12 @@ export class GoogleUseCase {
 
     // If user already exists and a role was provided, ensure profile exists then tell the frontend
     if (user && role) {
+      if (user.status !== UserStatus.ACTIVE) {
+        throw new UnauthorizedException(
+          `Your account is ${user.status.toLowerCase().replace('_', ' ')}`,
+        );
+      }
+
       try {
         if (normalizedRole === 'employer' && this.employerProfileRepository) {
           const existingProfile = await this.employerProfileRepository.findOne({
@@ -181,6 +188,12 @@ export class GoogleUseCase {
     // At this point, user is guaranteed to exist
     if (!user) {
       throw new InternalServerErrorException('Failed to get or create user');
+    }
+
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException(
+        `Your account is ${user.status.toLowerCase().replace('_', ' ')}`,
+      );
     }
 
     // Generate app tokens
