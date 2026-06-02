@@ -378,12 +378,31 @@ export class PaymentsService {
       payment.jobPostLimit !== undefined
     ) {
       try {
-        await this.employerRepository.update(
-          { id: payment.employer.id },
-          {
-            currentPlanType: payment.planType,
-            jobPostLimit: payment.jobPostLimit,
-          },
+        // await this.employerRepository.update(
+        //   { id: payment.employer.id },
+        //   {
+        //     currentPlanType: payment.planType,
+        //     jobPostLimit: payment.jobPostLimit,
+        //   },
+        // );
+        const employerProfile = await this.employerRepository.findOne({
+          where: { id: payment.employer.id },
+        });
+
+        if (employerProfile) {
+          // 2. Add the new limit to the old limit
+          const currentLimit = employerProfile.jobPostLimit || 0;
+
+          await this.employerRepository.update(
+            { id: payment.employer.id },
+            {
+              currentPlanType: payment.planType,
+              jobPostLimit: currentLimit + payment.jobPostLimit, // Accumulated total
+            },
+          );
+        }
+        console.log(
+          `Updated employer ${payment.employer.id} profile with plan ${payment.planType} and added job post limit ${payment.jobPostLimit}.`,
         );
       } catch (err) {
         this.logger.warn(

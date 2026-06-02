@@ -43,8 +43,8 @@ export class JobsService {
   ) {}
 
   private escapeCsvValue(value: unknown) {
-    const text = String(value ?? '')
-    return `"${text.replace(/"/g, '""')}"`
+    const text = String(value ?? '');
+    return `"${text.replace(/"/g, '""')}"`;
   }
 
   async getAllJobs(paginationDto: PaginationDto) {
@@ -70,7 +70,11 @@ export class JobsService {
 
     if (deadlineSort) {
       queryBuilder
-        .orderBy('job.deadline', deadlineSort.toUpperCase() as 'ASC' | 'DESC', 'NULLS LAST')
+        .orderBy(
+          'job.deadline',
+          deadlineSort.toUpperCase() as 'ASC' | 'DESC',
+          'NULLS LAST',
+        )
         .addOrderBy('job.createdAt', 'DESC');
     } else {
       queryBuilder.orderBy('job.createdAt', 'DESC');
@@ -145,18 +149,18 @@ export class JobsService {
     const job = await this.jobRepository.findOne({
       where: { id },
       relations: ['category', 'jobType', 'status', 'employer'],
-    })
+    });
 
     if (!job) {
-      throw new NotFoundException('Job not found')
+      throw new NotFoundException('Job not found');
     }
 
-    job.is_blocked = blocked
-    job.updatedAt = new Date()
+    job.is_blocked = blocked;
+    job.updatedAt = new Date();
 
-    await this.jobRepository.save(job)
+    await this.jobRepository.save(job);
 
-    return job
+    return job;
   }
 
   async getJobByIdForAdmin(id: string) {
@@ -243,7 +247,7 @@ export class JobsService {
       category: dto.categoryId ? { id: dto.categoryId } : undefined,
       jobType: dto.jobTypeId ? { id: dto.jobTypeId } : undefined,
       status: dto.statusId ? { id: dto.statusId } : undefined,
-      approvalStatus: JobApprovalStatus.PENDING_APPROVAL,
+      approvalStatus: JobApprovalStatus.APPROVED,
     });
 
     return this.jobRepository.save(job);
@@ -710,9 +714,12 @@ export class JobsService {
     }
 
     if (location) {
-      qb.andWhere('(job.location ILIKE :location OR employer.location ILIKE :location)', {
-        location: `%${location}%`,
-      });
+      qb.andWhere(
+        '(job.location ILIKE :location OR employer.location ILIKE :location)',
+        {
+          location: `%${location}%`,
+        },
+      );
     }
 
     if (type) {
@@ -732,8 +739,11 @@ export class JobsService {
     }
 
     if (deadlineSort) {
-      qb.orderBy('job.deadline', deadlineSort.toUpperCase() as 'ASC' | 'DESC', 'NULLS LAST')
-        .addOrderBy('job.createdAt', 'DESC');
+      qb.orderBy(
+        'job.deadline',
+        deadlineSort.toUpperCase() as 'ASC' | 'DESC',
+        'NULLS LAST',
+      ).addOrderBy('job.createdAt', 'DESC');
     } else {
       qb.orderBy('job.createdAt', 'DESC');
     }
@@ -767,56 +777,64 @@ export class JobsService {
       status,
       blocked,
       deadlineSort,
-    } = query
+    } = query;
 
     const qb = this.jobRepository
       .createQueryBuilder('job')
       .leftJoinAndSelect('job.category', 'category')
       .leftJoinAndSelect('job.jobType', 'jobType')
       .leftJoinAndSelect('job.status', 'status')
-      .leftJoinAndSelect('job.employer', 'employer')
+      .leftJoinAndSelect('job.employer', 'employer');
 
     if (keyword) {
       qb.andWhere(
         '(job.title ILIKE :keyword OR job.description ILIKE :keyword OR employer.companyName ILIKE :keyword)',
         { keyword: `%${keyword}%` },
-      )
+      );
     }
 
     if (category) {
-      qb.andWhere('category.name ILIKE :category', { category: `%${category}%` })
+      qb.andWhere('category.name ILIKE :category', {
+        category: `%${category}%`,
+      });
     }
 
     if (location) {
-      qb.andWhere('(job.location ILIKE :location OR employer.location ILIKE :location)', {
-        location: `%${location}%`,
-      })
+      qb.andWhere(
+        '(job.location ILIKE :location OR employer.location ILIKE :location)',
+        {
+          location: `%${location}%`,
+        },
+      );
     }
 
     if (type) {
-      qb.andWhere('jobType.name = :type', { type })
+      qb.andWhere('jobType.name = :type', { type });
     }
 
     if (status) {
-      qb.andWhere('LOWER(status.name) = LOWER(:status)', { status })
+      qb.andWhere('LOWER(status.name) = LOWER(:status)', { status });
     }
 
     if (blocked !== undefined) {
-      qb.andWhere('job.is_blocked = :blocked', { blocked })
+      qb.andWhere('job.is_blocked = :blocked', { blocked });
     }
 
     if (minSalary !== undefined) {
-      qb.andWhere('job.salaryMin >= :minSalary', { minSalary })
+      qb.andWhere('job.salaryMin >= :minSalary', { minSalary });
     }
 
     if (deadlineSort) {
-      qb.orderBy('job.deadline', deadlineSort.toUpperCase() as 'ASC' | 'DESC', 'NULLS LAST')
-        .addOrderBy('job.createdAt', 'DESC')
+      qb.orderBy(
+        'job.deadline',
+        deadlineSort.toUpperCase() as 'ASC' | 'DESC',
+        'NULLS LAST',
+      ).addOrderBy('job.createdAt', 'DESC');
     } else {
-      qb.orderBy('job.createdAt', 'DESC')
+      qb.orderBy('job.createdAt', 'DESC');
     }
 
-    const jobs = await qb.getMany()
+    const jobs = await qb.getMany();
 
     const headers = [
       'Title',
@@ -832,7 +850,7 @@ export class JobsService {
       'Location',
       'Posted Date',
       'Deadline',
-    ]
+    ];
 
     const rows = jobs.map((job) => [
       job.title,
@@ -848,12 +866,13 @@ export class JobsService {
       job.location ?? job.employer?.location,
       job.createdAt,
       job.deadline,
-    ])
+    ]);
 
     return [
       headers.join(','),
-      ...rows.map((row) => row.map((value) => this.escapeCsvValue(value)).join(',')),
-    ].join('\n')
+      ...rows.map((row) =>
+        row.map((value) => this.escapeCsvValue(value)).join(','),
+      ),
+    ].join('\n');
   }
-
 }
