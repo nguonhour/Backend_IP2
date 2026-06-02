@@ -1,6 +1,6 @@
 import {
   Injectable,
-  BadRequestException,
+  // BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -238,9 +238,7 @@ export class NotificationService {
   private async queueEmailNotification(
     notification: Notification,
   ): Promise<void> {
-    // In production, this would add to a queue system like Bull/RabbitMQ
-    // For now, we just mark it as sent after a simulated delay
-    // TODO: Integrate with email service (Nodemailer, SendGrid, AWS SES, etc.)
+    await new Promise((resolve) => setTimeout(resolve, 50));
     console.log(`Queued email notification: ${notification.id}`);
   }
 
