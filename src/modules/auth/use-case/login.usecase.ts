@@ -7,6 +7,7 @@ import { Response } from 'express';
 import { createHash } from 'crypto';
 import { UserRepository } from '../repositories/user.repository';
 import { TokenService } from '../services/token.service';
+import { UserStatus } from '../../users/user-status.enum';
 
 @Injectable()
 export class LoginUseCase {
@@ -24,6 +25,12 @@ export class LoginUseCase {
 
     if (!user.isVerified) {
       throw new UnauthorizedException('Email not verified');
+    }
+
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException(
+        `Your account is ${user.status.toLowerCase().replace('_', ' ')}`,
+      );
     }
 
     // Verify password
