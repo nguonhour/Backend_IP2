@@ -1,7 +1,0 @@
-export declare enum UserStatus {
-    ACTIVE = "ACTIVE",
-    SUSPENDED = "SUSPENDED",
-    BLOCKED = "BLOCKED",
-    UNVERIFIED = "UNVERIFIED",
-    PENDING_APPROVAL = "PENDING_APPROVAL"
-}

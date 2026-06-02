@@ -51,7 +51,11 @@ export class JobsService {
     if (!value) return null;
     const normalized = value.slice(0, 10);
     const [year, month, day] = normalized.split('-').map(Number);
-    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    if (
+      !Number.isFinite(year) ||
+      !Number.isFinite(month) ||
+      !Number.isFinite(day)
+    ) {
       return null;
     }
     return new Date(year, month - 1, day);
@@ -65,7 +69,9 @@ export class JobsService {
     today.setHours(0, 0, 0, 0);
 
     if (deadlineDate < today) {
-      throw new BadRequestException('Application deadline cannot be earlier than today.');
+      throw new BadRequestException(
+        'Application deadline cannot be earlier than today.',
+      );
     }
   }
 
