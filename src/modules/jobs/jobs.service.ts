@@ -6,7 +6,7 @@ import {
   // Query,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { IsNull, Repository, SelectQueryBuilder } from 'typeorm';
 import { Job } from './job.entity';
 import { JobApprovalStatus } from './job-approval-status.enum';
 import { CreateJobDto } from './dto/create-job.dto';
@@ -22,6 +22,7 @@ import { StudentProfile } from '../student-profiles/student-profile.entity';
 import { PaginationDto } from './dto/pagination-job.dto';
 
 const PUBLIC_JOB_STATUS_NAMES = ['published', 'active', 'open'];
+const PUBLIC_JOB_APPROVAL_STATUSES = [JobApprovalStatus.APPROVED];
 
 @Injectable()
 export class JobsService {
@@ -75,6 +76,20 @@ export class JobsService {
     }
   }
 
+  private applyPublicJobVisibilityFilters(
+    queryBuilder: SelectQueryBuilder<Job>,
+  ) {
+    return queryBuilder
+      .andWhere('LOWER(status.name) IN (:...visibleStatuses)', {
+        visibleStatuses: PUBLIC_JOB_STATUS_NAMES,
+      })
+      .andWhere('job.approvalStatus IN (:...visibleApprovalStatuses)', {
+        visibleApprovalStatuses: PUBLIC_JOB_APPROVAL_STATUSES,
+      })
+      .andWhere('(job.deadline IS NULL OR job.deadline >= NOW())')
+      .andWhere('COALESCE(job.is_blocked, false) IS FALSE');
+  }
+
   async getAllJobs(paginationDto: PaginationDto) {
     const { page, limit, deadlineSort } = paginationDto;
     const skip = (page - 1) * limit;
@@ -85,17 +100,10 @@ export class JobsService {
       .leftJoinAndSelect('job.jobType', 'jobType')
       .leftJoinAndSelect('job.status', 'status')
       .leftJoinAndSelect('job.employer', 'employer')
-      .where('LOWER(status.name) IN (:...visibleStatuses)', {
-        visibleStatuses: PUBLIC_JOB_STATUS_NAMES,
-      })
-      .andWhere('job.approvalStatus = :approvalStatus', {
-        approvalStatus: JobApprovalStatus.APPROVED,
-      })
-      .andWhere('(job.deadline IS NULL OR job.deadline >= NOW())')
-      .andWhere('(job.is_blocked IS FALSE)')
       .skip(skip)
       .take(limit);
 
+    this.applyPublicJobVisibilityFilters(queryBuilder);
     if (deadlineSort) {
       queryBuilder
         .orderBy(
@@ -222,7 +230,7 @@ export class JobsService {
   }
 
   async getJobById(id: string) {
-    const job = await this.jobRepository
+    const queryBuilder = this.jobRepository
       .createQueryBuilder('job')
       .leftJoinAndSelect('job.category', 'category')
       .leftJoinAndSelect('job.jobType', 'jobType')
@@ -230,13 +238,11 @@ export class JobsService {
       .leftJoinAndSelect('job.employer', 'employer')
       .loadRelationCountAndMap('job.applicantsCount', 'job.applications')
       .loadRelationCountAndMap('job.viewsCount', 'job.views')
-      .where('job.id = :id', { id })
-      .andWhere('LOWER(status.name) IN (:...visibleStatuses)', {
-        visibleStatuses: PUBLIC_JOB_STATUS_NAMES,
-      })
-      .andWhere('(job.deadline IS NULL OR job.deadline >= NOW())')
-      .andWhere('(job.is_blocked IS FALSE)')
-      .getOne();
+      .where('job.id = :id', { id });
+
+    this.applyPublicJobVisibilityFilters(queryBuilder);
+
+    const job = await queryBuilder.getOne();
     if (!job) {
       throw new NotFoundException('Job not found');
     }
@@ -443,7 +449,7 @@ export class JobsService {
     const skillIds = student.studentSkills.map((s) => s.skill.id);
     if (skillIds.length === 0) return [];
 
-    return this.jobRepository
+    const queryBuilder = this.jobRepository
       .createQueryBuilder('job')
       .leftJoinAndSelect('job.jobSkills', 'jobSkill')
       .leftJoinAndSelect('jobSkill.skill', 'skill')
@@ -451,13 +457,12 @@ export class JobsService {
       .leftJoinAndSelect('job.status', 'status')
       .leftJoinAndSelect('job.jobType', 'jobType')
       .leftJoinAndSelect('job.category', 'category')
-      .where('LOWER(status.name) IN (:...visibleStatuses)', {
-        visibleStatuses: PUBLIC_JOB_STATUS_NAMES,
-      })
-      .andWhere('(job.deadline IS NULL OR job.deadline >= NOW())')
       .andWhere('skill.id IN (:...skillIds)', { skillIds })
-      .orderBy('job.createdAt', 'DESC')
-      .getMany();
+      .orderBy('job.createdAt', 'DESC');
+
+    this.applyPublicJobVisibilityFilters(queryBuilder);
+
+    return queryBuilder.getMany();
   }
 
   async getMatchByMajor(userId: string) {
@@ -469,21 +474,20 @@ export class JobsService {
     if (!student) throw new NotFoundException('Student profile not found');
     if (!student.major) return [];
 
-    return this.jobRepository
+    const queryBuilder = this.jobRepository
       .createQueryBuilder('job')
       .leftJoinAndSelect('job.category', 'category')
       .leftJoinAndSelect('job.employer', 'employer')
       .leftJoinAndSelect('job.status', 'status')
       .leftJoinAndSelect('job.jobType', 'jobType')
-      .where('LOWER(status.name) IN (:...visibleStatuses)', {
-        visibleStatuses: PUBLIC_JOB_STATUS_NAMES,
-      })
-      .andWhere('(job.deadline IS NULL OR job.deadline >= NOW())')
       .andWhere('LOWER(category.name) LIKE :major', {
         major: `%${student.major.name.toLowerCase()}%`,
       })
-      .orderBy('job.createdAt', 'DESC')
-      .getMany();
+      .orderBy('job.createdAt', 'DESC');
+
+    this.applyPublicJobVisibilityFilters(queryBuilder);
+
+    return queryBuilder.getMany();
   }
 
   async getRecommendedJobs(userId: string) {
@@ -525,11 +529,9 @@ export class JobsService {
       .leftJoinAndSelect('job.status', 'status')
       .leftJoinAndSelect('job.jobType', 'jobType')
       .leftJoinAndSelect('job.jobSkills', 'jobSkill')
-      .leftJoinAndSelect('jobSkill.skill', 'skill')
-      .where('LOWER(status.name) IN (:...visibleStatuses)', {
-        visibleStatuses: PUBLIC_JOB_STATUS_NAMES,
-      })
-      .andWhere('(job.deadline IS NULL OR job.deadline >= NOW())');
+      .leftJoinAndSelect('jobSkill.skill', 'skill');
+
+    this.applyPublicJobVisibilityFilters(qb);
 
     if (categoryIds.size > 0 && skillIds.length > 0) {
       qb.andWhere(
@@ -640,17 +642,9 @@ export class JobsService {
       .leftJoinAndSelect('job.category', 'category')
       .leftJoinAndSelect('job.jobType', 'jobType')
       .leftJoinAndSelect('job.status', 'status')
-      .leftJoinAndSelect('job.employer', 'employer')
-      .where('LOWER(status.name) IN (:...visibleStatuses)', {
-        visibleStatuses: PUBLIC_JOB_STATUS_NAMES,
-      })
-      .andWhere('job.approvalStatus = :approvalStatus', {
-        approvalStatus: JobApprovalStatus.APPROVED,
-      })
-      .andWhere('(job.deadline IS NULL OR job.deadline >= NOW())')
-      .andWhere('(job.is_blocked IS FALSE)')
-      .skip(skip)
-      .take(limit);
+      .leftJoinAndSelect('job.employer', 'employer');
+
+    this.applyPublicJobVisibilityFilters(qb);
 
     if (keyword) {
       qb.andWhere(

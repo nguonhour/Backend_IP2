@@ -26,7 +26,7 @@ export class ApplicationsController {
   @Get()
   async getAllApplications(
     @Query('today') today?: string,
-    @Query('hired') hired?: string, 
+    @Query('hired') hired?: string,
   ) {
     return this.applicationsService.getAllApplications({
       today: today === 'true',
