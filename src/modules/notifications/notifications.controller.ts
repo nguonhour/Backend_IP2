@@ -1,18 +1,38 @@
-import { Controller, Post, Body, Get } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Patch, Delete, Req, UseGuards } from '@nestjs/common';
 import { NotificationService } from './notifications.service';
 import { CreateNotificationDto } from './dto/update-notification.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
 
 @Controller('notifications')
 export class NotificationController {
   constructor(private readonly service: NotificationService) {}
 
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async getMine(@Req() req: AuthenticatedRequest) {
+    return await this.service.findAllByUserId(req.user.id);
+  }
+
   @Get(':userId')
-  async findAllByUserId(@Body('userId') userId: string) {
+  async findAllByUserId(@Param('userId') userId: string) {
     return await this.service.findAllByUserId(userId);
   }
 
   @Post()
   async create(@Body() dto: CreateNotificationDto) {
     return await this.service.create(dto);
+  }
+
+  @Patch(':id/read')
+  @UseGuards(JwtAuthGuard)
+  async markRead(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+    return await this.service.markRead(id, req.user.id);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  async remove(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+    return await this.service.remove(id, req.user.id);
   }
 }

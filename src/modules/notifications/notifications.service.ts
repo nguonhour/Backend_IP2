@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Notification } from './notification.entity';
@@ -17,12 +17,51 @@ export class NotificationService {
       order: { createdAt: 'DESC' },
     });
   }
+
   async create(data: CreateNotificationDto): Promise<Notification> {
     const notification = this.repo.create({
-      ...data,
+      type: data.type,
+      message: data.message,
+      referenceId: data.reference_id,
+      user: { id: data.user_id },
       isRead: false,
     });
 
     return await this.repo.save(notification);
+  }
+
+  async markRead(id: string, userId: string): Promise<Notification> {
+    const notification = await this.repo.findOne({
+      where: { id },
+      relations: ['user'],
+    });
+
+    if (!notification) {
+      throw new NotFoundException('Notification not found');
+    }
+
+    if (notification.user.id !== userId) {
+      throw new ForbiddenException('You can only mark your own notifications as read');
+    }
+
+    notification.isRead = true;
+    return await this.repo.save(notification);
+  }
+
+  async remove(id: string, userId: string): Promise<void> {
+    const notification = await this.repo.findOne({
+      where: { id },
+      relations: ['user'],
+    });
+
+    if (!notification) {
+      throw new NotFoundException('Notification not found');
+    }
+
+    if (notification.user.id !== userId) {
+      throw new ForbiddenException('You can only delete your own notifications');
+    }
+
+    await this.repo.remove(notification);
   }
 }
