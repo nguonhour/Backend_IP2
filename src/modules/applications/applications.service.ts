@@ -286,16 +286,16 @@ export class ApplicationsService {
     ]);
 
     const hiredThisMonth = await this.applicationRepository
-        .createQueryBuilder('application')
-        .innerJoin('application.currentStatus', 'status')
-        .innerJoin('application.job', 'job')
-        .innerJoin('job.employer', 'employer')
-        .innerJoin('employer.user', 'employerUser')
-        .where('employerUser.id = :userId', { userId })
-        .andWhere('LOWER(status.name) = :status', {
-          status: 'hired',
-        })
-        .getCount();
+      .createQueryBuilder('application')
+      .innerJoin('application.currentStatus', 'status')
+      .innerJoin('application.job', 'job')
+      .innerJoin('job.employer', 'employer')
+      .innerJoin('employer.user', 'employerUser')
+      .where('employerUser.id = :userId', { userId })
+      .andWhere('LOWER(status.name) = :status', {
+        status: 'hired',
+      })
+      .getCount();
 
     return {
       stats: {
@@ -304,7 +304,10 @@ export class ApplicationsService {
         totalApplicants,
         newApplicantsToday,
         hiredThisMonth,
-        hiredGoalPercent: Math.min(Math.round((hiredThisMonth / hireGoal) * 100),100,)
+        hiredGoalPercent: Math.min(
+          Math.round((hiredThisMonth / hireGoal) * 100),
+          100,
+        ),
       },
       pipeline: this.toPipelineCounts(pipelineRows),
       recentApplications,
@@ -569,7 +572,10 @@ export class ApplicationsService {
       try {
         await this.notifyStudentAboutStatusChange(application, nextStatus, dto);
       } catch (error) {
-        console.error('Failed to create application status notification:', error);
+        console.error(
+          'Failed to create application status notification:',
+          error,
+        );
       }
     }
 
@@ -595,15 +601,13 @@ export class ApplicationsService {
     const jobTitle = application.job?.title ?? 'your application';
     const interviewText = this.formatInterviewDetails(dto.interviewDetails);
 
-    const title =
-      this.isInterviewStatusName(normalizedStatus)
-        ? 'Interview Scheduled'
-        : 'Application Status Updated';
+    const title = this.isInterviewStatusName(normalizedStatus)
+      ? 'Interview Scheduled'
+      : 'Application Status Updated';
 
-    const message =
-      this.isInterviewStatusName(normalizedStatus)
-        ? `Your interview for ${jobTitle} has been scheduled${interviewText}.`
-        : `Your application for ${jobTitle} was moved to ${statusName}.`;
+    const message = this.isInterviewStatusName(normalizedStatus)
+      ? `Your interview for ${jobTitle} has been scheduled${interviewText}.`
+      : `Your application for ${jobTitle} was moved to ${statusName}.`;
 
     await this.notificationService.createNotification(
       studentUserId,

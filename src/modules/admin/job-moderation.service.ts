@@ -90,10 +90,12 @@ export class JobModerationService {
     const oldData = {
       approvalStatus: job.approvalStatus,
       rejectionReason: job.rejectionReason,
+      is_blocked: job.is_blocked,
     };
 
     job.approvalStatus = JobApprovalStatus.APPROVED;
     job.rejectionReason = null;
+    job.is_blocked = false;
     const updated = await this.jobRepository.save(job);
 
     // Audit log
@@ -107,6 +109,7 @@ export class JobModerationService {
       newData: {
         approvalStatus: job.approvalStatus,
         rejectionReason: null,
+        is_blocked: job.is_blocked,
       },
       description: `Job "${job.title}" approved`,
     });
@@ -240,6 +243,11 @@ export class JobModerationService {
       where: { approvalStatus: JobApprovalStatus.REJECTED },
     });
 
-    return { pending, approved, rejected, total: pending + approved + rejected };
+    return {
+      pending,
+      approved,
+      rejected,
+      total: pending + approved + rejected,
+    };
   }
 }
