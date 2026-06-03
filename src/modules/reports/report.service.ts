@@ -93,7 +93,7 @@ export class ReportService {
     }
 
     if (jobId) {
-      query = query.andWhere('r.jobId = :jobId', { jobId });
+      query = query.andWhere('r.job_id = :jobId', { jobId });
     }
 
     query = query.orderBy('r.createdAt', 'DESC');
@@ -322,10 +322,10 @@ export class ReportService {
     // Most reported jobs
     const mostReportedJobs = await this.reportRepository
       .createQueryBuilder('r')
-      .select('r.jobId', 'jobId')
+      .select('r.job_id', 'jobId')
       .addSelect('COUNT(*)', 'count')
-      .where('r.jobId IS NOT NULL')
-      .groupBy('r.jobId')
+      .where('r.job_id IS NOT NULL')
+      .groupBy('r.job_id')
       .orderBy('count', 'DESC')
       .limit(10)
       .getRawMany();

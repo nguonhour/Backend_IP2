@@ -43,7 +43,9 @@ export class UserManagementService {
     }
 
     if (role) {
-      query.andWhere('role.name = :role', { role: role.toUpperCase() });
+      query.andWhere('UPPER(role.name) = :role', {
+        role: role.toUpperCase(),
+      });
     }
 
     if (universityId) {
@@ -83,25 +85,13 @@ export class UserManagementService {
 
     const [totalActiveStudents, newRegistrationsToday, activeEmployers] =
       await Promise.all([
-        this.userRepository.count({
-          where: {
-            status: UserStatus.ACTIVE,
-            role: { name: 'STUDENT' },
-          },
-          relations: { role: true },
-        }),
+        this.countUsersByRole('STUDENT', { status: UserStatus.ACTIVE }),
         this.userRepository.count({
           where: {
             createdAt: Between(today, tomorrow),
           },
         }),
-        this.userRepository.count({
-          where: {
-            status: UserStatus.ACTIVE,
-            role: { name: 'EMPLOYER' },
-          },
-          relations: { role: true },
-        }),
+        this.countUsersByRole('EMPLOYER', { status: UserStatus.ACTIVE }),
       ]);
 
     return {
@@ -121,6 +111,24 @@ export class UserManagementService {
   async getUserById(userId: string): Promise<AdminUserRow> {
     const user = await this.getUserEntityById(userId);
     return this.toAdminUserRow(user);
+  }
+
+  private countUsersByRole(
+    roleName: string,
+    filters: { status?: UserStatus } = {},
+  ): Promise<number> {
+    const query = this.userRepository
+      .createQueryBuilder('u')
+      .leftJoin('u.role', 'role')
+      .where('UPPER(role.name) = :roleName', {
+        roleName: roleName.toUpperCase(),
+      });
+
+    if (filters.status) {
+      query.andWhere('u.status = :status', { status: filters.status });
+    }
+
+    return query.getCount();
   }
 
   private async getUserEntityById(userId: string): Promise<User> {
