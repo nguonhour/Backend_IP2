@@ -102,7 +102,9 @@ export class EmployerProfilesService {
     Object.assign(profile, {
       companyName: has('companyName') ? dto.companyName : profile.companyName,
       location: has('location') ? dto.location : profile.location,
-      contactEmail: has('contactEmail') ? dto.contactEmail : profile.contactEmail,
+      contactEmail: has('contactEmail')
+        ? dto.contactEmail
+        : profile.contactEmail,
       avatarUrl: has('avatarUrl') ? dto.avatarUrl : profile.avatarUrl,
       about: has('about') ? dto.about : profile.about,
       companySize: has('companySize') ? dto.companySize : profile.companySize,
@@ -220,7 +222,7 @@ export class EmployerProfilesService {
   }
 
   async getAllPartnets() {
-    const profiles = await this.employerProfileRepository.find()
+    const profiles = await this.employerProfileRepository.find();
 
     return profiles.map((profile) => ({
       logo: profile.avatarUrl,

@@ -71,6 +71,18 @@ export async function initializeDatabase(dataSource: DataSource) {
     await dataSource.query(
       `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS phone varchar`,
     );
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS applicant_digest_enabled boolean NOT NULL DEFAULT true`,
+    );
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS billing_alerts_enabled boolean NOT NULL DEFAULT true`,
+    );
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS marketing_updates_enabled boolean NOT NULL DEFAULT false`,
+    );
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS profile_visibility_enabled boolean NOT NULL DEFAULT true`,
+    );
     console.log('[InitDB] Ensured extended employer profile columns exist');
   } catch (err) {
     console.error('[InitDB] Error ensuring employer profile columns:', err);
@@ -316,7 +328,9 @@ export async function initializeDatabase(dataSource: DataSource) {
     await dataSource.query(
       `ALTER TABLE reports ALTER COLUMN description SET NOT NULL`,
     );
-    await dataSource.query(`ALTER TABLE reports ALTER COLUMN type SET NOT NULL`);
+    await dataSource.query(
+      `ALTER TABLE reports ALTER COLUMN type SET NOT NULL`,
+    );
     await dataSource.query(
       `CREATE INDEX IF NOT EXISTS "IDX_REPORTS_USER_CREATED" ON reports (user_id, created_at)`,
     );
