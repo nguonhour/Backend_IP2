@@ -5,62 +5,108 @@ stages:
 variables:
   DOCKER_HOST: tcp://docker:2375
   DOCKER_TLS_CERTDIR: ""
+  DOCKER_DRIVER: overlay2
+  IMAGE_TAG: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+  LATEST_TAG: "$CI_REGISTRY_IMAGE:latest"
+  DEPLOY_PATH: "/opt/project-ip2-backend"
 
-# ==========================================
-# STAGE 1: Build Image on GitLab Cloud
-# ==========================================
 build_backend:
   stage: build
   image: docker:24.0.5
   services:
-    - docker:24.0.5-dind
+    - name: docker:24.0.5-dind
+      alias: docker
   before_script:
-    # Authenticate to GitLab's built-in container registry
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
   script:
-    # Build your Docker container using the Dockerfile in your repo
-    - docker build -t $CI_REGISTRY_IMAGE:latest .
-    # Push the compiled image to GitLab's container registry
-    - docker push $CI_REGISTRY_IMAGE:latest
+    - docker build --target runner -t "$IMAGE_TAG" -t "$LATEST_TAG" .
+    - docker push "$IMAGE_TAG"
+    - docker push "$LATEST_TAG"
 
-# ==========================================
-# STAGE 2: Lightweight Deploy to Droplet
-# ==========================================
 deploy_to_droplet:
   stage: deploy
   image: alpine:latest
+  needs:
+    - build_backend
   before_script:
-    # Install an SSH client into the temporary GitLab pipeline runner
     - apk add --no-cache openssh-client
-    # Start the SSH agent and load your private deployment key
-    - eval $(ssh-agent -s)
+    - eval "$(ssh-agent -s)"
     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
   script:
-    # SSH into your droplet and run deployment commands sequentially
+    - ssh -o StrictHostKeyChecking=no "$DROPLET_USER@$DROPLET_IP" "mkdir -p '$DEPLOY_PATH'"
     - |
-      ssh -o StrictHostKeyChecking=no $DROPLET_USER@$DROPLET_IP "
-        # 1. Log into your GitLab registry from inside the Droplet
-        docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY &&
-        
-        # 2. Stop and remove the old running container safely (if it exists)
-        docker stop backend_app || true &&
-        docker rm backend_app || true &&
-        
-        # 3. Pull down the fresh production image built in Stage 1
-        docker pull $CI_REGISTRY_IMAGE:latest &&
-        
-        # 4. Spin up your backend container (bounded only to 127.0.0.1 for Cloudflare Tunnel)
-        docker run -d \
-          --name backend_app \
-          --restart always \
-          -p 127.0.0.1:3211:3001 \
-          $CI_REGISTRY_IMAGE:latest &&
-          
-        # 5. CRUCIAL FOR 2GB RAM: Clear out old images to preserve disk & RAM space
-        docker system prune -f
+      ssh -o StrictHostKeyChecking=no "$DROPLET_USER@$DROPLET_IP" "cat > '$DEPLOY_PATH/docker-compose.yml'" <<EOF
+      services:
+        db:
+          image: postgres:16-alpine
+          container_name: project_ip2_backend_db
+          environment:
+            POSTGRES_DB: \${DB_NAME:-student_part_time}
+            POSTGRES_USER: \${DB_USERNAME:-root}
+            POSTGRES_PASSWORD: \${DB_PASSWORD:-Hnh00900}
+          ports:
+            - "127.0.0.1:\${DB_EXPOSE_PORT:-5431}:5432"
+          volumes:
+            - backend_postgres_data:/var/lib/postgresql/data
+          healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U \${DB_USERNAME:-root} -d \${DB_NAME:-student_part_time}"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+        backend:
+          image: $LATEST_TAG
+          container_name: project_ip2_backend
+          env_file:
+            - .env
+          environment:
+            NODE_ENV: production
+            PORT: 3001
+            DB_HOST: db
+            DB_PORT: 5432
+            DB_USERNAME: \${DB_USERNAME:-root}
+            DB_PASSWORD: \${DB_PASSWORD:-Hnh00900}
+            DB_NAME: \${DB_NAME:-student_part_time}
+            CORS_ORIGIN: \${CORS_ORIGIN:-http://localhost:5174}
+          depends_on:
+            db:
+              condition: service_healthy
+          ports:
+            - "127.0.0.1:\${BACKEND_EXPOSE_PORT:-3211}:3001"
+          restart: unless-stopped
+
+      volumes:
+        backend_postgres_data:
+      EOF
+    - |
+      if [ -n "$BACKEND_ENV_FILE" ]; then
+        printf '%s\n' "$BACKEND_ENV_FILE" | ssh -o StrictHostKeyChecking=no "$DROPLET_USER@$DROPLET_IP" "cat > '$DEPLOY_PATH/.env' && chmod 600 '$DEPLOY_PATH/.env'"
+      fi
+    - |
+      ssh -o StrictHostKeyChecking=no "$DROPLET_USER@$DROPLET_IP" "
+        set -e
+        cd '$DEPLOY_PATH'
+
+        if [ ! -f .env ]; then
+          echo 'Missing $DEPLOY_PATH/.env. Add it on the server or set BACKEND_ENV_FILE in GitLab CI variables.'
+          exit 1
+        fi
+
+        if docker compose version >/dev/null 2>&1; then
+          COMPOSE='docker compose'
+        elif command -v docker-compose >/dev/null 2>&1; then
+          COMPOSE='docker-compose'
+        else
+          echo 'Docker Compose is not installed on the Droplet.'
+          exit 1
+        fi
+
+        docker login -u '$CI_REGISTRY_USER' -p '$CI_REGISTRY_PASSWORD' '$CI_REGISTRY'
+        \$COMPOSE pull
+        \$COMPOSE up -d --remove-orphans
+        docker image prune -f
       "
-  only:
-    # This pipeline will only run automatically when you push code to your main branch
-    - main
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
