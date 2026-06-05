@@ -1,0 +1,112 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_TLS_CERTDIR: ""
+  DOCKER_DRIVER: overlay2
+  IMAGE_TAG: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+  LATEST_TAG: "$CI_REGISTRY_IMAGE:latest"
+  DEPLOY_PATH: "/opt/project-ip2-backend"
+
+build_backend:
+  stage: build
+  image: docker:24.0.5
+  services:
+    - name: docker:24.0.5-dind
+      alias: docker
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+  script:
+    - docker build --target runner -t "$IMAGE_TAG" -t "$LATEST_TAG" .
+    - docker push "$IMAGE_TAG"
+    - docker push "$LATEST_TAG"
+
+deploy_to_droplet:
+  stage: deploy
+  image: alpine:latest
+  needs:
+    - build_backend
+  before_script:
+    - apk add --no-cache openssh-client
+    - eval "$(ssh-agent -s)"
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+  script:
+    - ssh -o StrictHostKeyChecking=no "$DROPLET_USER@$DROPLET_IP" "mkdir -p '$DEPLOY_PATH'"
+    - |
+      ssh -o StrictHostKeyChecking=no "$DROPLET_USER@$DROPLET_IP" "cat > '$DEPLOY_PATH/docker-compose.yml'" <<EOF
+      services:
+        db:
+          image: postgres:16-alpine
+          container_name: project_ip2_backend_db
+          environment:
+            POSTGRES_DB: \${DB_NAME:-student_part_time}
+            POSTGRES_USER: \${DB_USERNAME:-root}
+            POSTGRES_PASSWORD: \${DB_PASSWORD:-Hnh00900}
+          ports:
+            - "127.0.0.1:\${DB_EXPOSE_PORT:-5431}:5432"
+          volumes:
+            - backend_postgres_data:/var/lib/postgresql/data
+          healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U \${DB_USERNAME:-root} -d \${DB_NAME:-student_part_time}"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+        backend:
+          image: $LATEST_TAG
+          container_name: project_ip2_backend
+          env_file:
+            - .env
+          environment:
+            NODE_ENV: production
+            PORT: 3001
+            DB_HOST: db
+            DB_PORT: 5432
+            DB_USERNAME: \${DB_USERNAME:-root}
+            DB_PASSWORD: \${DB_PASSWORD:-Hnh00900}
+            DB_NAME: \${DB_NAME:-student_part_time}
+            CORS_ORIGIN: \${CORS_ORIGIN:-http://localhost:5174}
+          depends_on:
+            db:
+              condition: service_healthy
+          ports:
+            - "127.0.0.1:\${BACKEND_EXPOSE_PORT:-3211}:3001"
+          restart: unless-stopped
+
+      volumes:
+        backend_postgres_data:
+      EOF
+    - |
+      if [ -n "$BACKEND_ENV_FILE" ]; then
+        printf '%s\n' "$BACKEND_ENV_FILE" | ssh -o StrictHostKeyChecking=no "$DROPLET_USER@$DROPLET_IP" "cat > '$DEPLOY_PATH/.env' && chmod 600 '$DEPLOY_PATH/.env'"
+      fi
+    - |
+      ssh -o StrictHostKeyChecking=no "$DROPLET_USER@$DROPLET_IP" "
+        set -e
+        cd '$DEPLOY_PATH'
+
+        if [ ! -f .env ]; then
+          echo 'Missing $DEPLOY_PATH/.env. Add it on the server or set BACKEND_ENV_FILE in GitLab CI variables.'
+          exit 1
+        fi
+
+        if docker compose version >/dev/null 2>&1; then
+          COMPOSE='docker compose'
+        elif command -v docker-compose >/dev/null 2>&1; then
+          COMPOSE='docker-compose'
+        else
+          echo 'Docker Compose is not installed on the Droplet.'
+          exit 1
+        fi
+
+        docker login -u '$CI_REGISTRY_USER' -p '$CI_REGISTRY_PASSWORD' '$CI_REGISTRY'
+        \$COMPOSE pull
+        \$COMPOSE up -d --remove-orphans
+        docker image prune -f
+      "
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
