@@ -24,6 +24,12 @@ export class NotificationController {
     return await this.service.create(dto);
   }
 
+  @Patch('me/read-all')
+  @UseGuards(JwtAuthGuard)
+  async markAllRead(@Req() req: AuthenticatedRequest) {
+    return await this.service.markAllRead(req.user.id);
+  }
+
   @Patch(':id/read')
   @UseGuards(JwtAuthGuard)
   async markRead(@Param('id') id: string, @Req() req: AuthenticatedRequest) {

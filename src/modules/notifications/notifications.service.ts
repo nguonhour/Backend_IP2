@@ -3,12 +3,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Notification } from './notification.entity';
 import { CreateNotificationDto } from './dto/update-notification.dto';
+import { NotificationsGateway } from './notifications.gateway';
 
 @Injectable()
 export class NotificationService {
   constructor(
     @InjectRepository(Notification)
     private repo: Repository<Notification>,
+    private gateway: NotificationsGateway,
   ) {}
 
   async findAllByUserId(userId: string): Promise<Notification[]> {
@@ -27,7 +29,19 @@ export class NotificationService {
       isRead: false,
     });
 
-    return await this.repo.save(notification);
+    const saved = await this.repo.save(notification);
+
+    this.gateway.sendNotification(data.user_id, 'notification:new', saved);
+
+    return saved;
+  }
+
+  async markAllRead(userId: string): Promise<{ affected: number }> {
+    const result = await this.repo.update(
+      { user: { id: userId }, isRead: false },
+      { isRead: true },
+    );
+    return { affected: result.affected ?? 0 };
   }
 
   async markRead(id: string, userId: string): Promise<Notification> {
