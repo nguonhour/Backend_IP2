@@ -6,6 +6,7 @@ RUN npm ci
 FROM node:22-alpine AS dev
 WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
+COPY . .
 CMD ["npm", "run", "start:dev"]
 
 FROM node:22-alpine AS builder
@@ -25,5 +26,5 @@ ENV NODE_ENV=production
 COPY --from=production-dependencies /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY package*.json ./
-EXPOSE 3211
+EXPOSE 3001
 CMD ["node", "dist/main"]

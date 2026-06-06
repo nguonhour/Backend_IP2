@@ -8,9 +8,12 @@ import { StudentProfile } from '../student-profiles/student-profile.entity';
 import { ApplicationStatus } from '../../entities/master/application-status.entity';
 import { Job } from '../jobs/job.entity';
 import { Resume } from '../resumes/resume.entity';
+import { ApplicationsRepository } from './repository/applications.repository';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
+    NotificationsModule,
     TypeOrmModule.forFeature([
       ApplicationStatusHistory,
       Application,
@@ -21,6 +24,7 @@ import { Resume } from '../resumes/resume.entity';
     ]),
   ],
   controllers: [ApplicationsController],
-  providers: [ApplicationsService],
+  providers: [ApplicationsService, ApplicationsRepository],
+  exports: [ApplicationsRepository],
 })
 export class ApplicationsModule {}

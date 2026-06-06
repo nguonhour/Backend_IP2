@@ -4,9 +4,11 @@ import {
   PrimaryGeneratedColumn,
   ManyToOne,
   JoinColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { EmployerProfile } from '../employer-profiles/employer-profile.entity';
-import { Job } from '../jobs/job.entity';
+import { PaymentStatus } from './enum/payment-status.enum';
 
 @Entity('payments')
 export class Payment {
@@ -17,25 +19,36 @@ export class Payment {
   @JoinColumn({ name: 'employer_id' })
   employer: EmployerProfile;
 
-  @ManyToOne(() => Job, { nullable: true })
-  @JoinColumn({ name: 'job_id' })
-  job: Job;
-
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   amount: number;
 
   @Column()
   currency: string;
 
-  @Column()
-  status: string;
+  @Column({ type: 'varchar', length: 20, default: PaymentStatus.PENDING })
+  status: PaymentStatus;
 
-  @Column({ nullable: true })
+  @Column({ name: 'payment_method', nullable: true })
   paymentMethod: string;
 
-  @Column({ nullable: true })
+  @Column({ name: 'transaction_ref', nullable: true })
   transactionRef: string;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ name: 'plan_name', nullable: true })
+  planName: string;
+
+  @Column({ name: 'plan_type', nullable: true })
+  planType: string;
+
+  @Column({ name: 'job_post_limit', nullable: true, type: 'int', default: 2 })
+  jobPostLimit: number;
+
+  @Column({ name: 'expires_at', type: 'timestamp', nullable: true })
+  expiresAt: Date | null;
+
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
+  updatedAt: Date;
 }

@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { JobStatus } from './job-status.entity';
 import { ApplicationStatus } from './application-status.entity';
 import { University } from './university.entity';
 import { Major } from './major.entity';
 import { JobCategory } from './job-category.entity';
 import { JobType } from './job-type.entity';
+import { Language } from './language.entity';
 
 @Injectable()
 export class MasterService {
@@ -23,6 +24,8 @@ export class MasterService {
     private universityRepository: Repository<University>,
     @InjectRepository(Major)
     private majorRepository: Repository<Major>,
+    @InjectRepository(Language)
+    private languageRepository: Repository<Language>,
   ) {}
 
   async getJobStatuses() {
@@ -35,7 +38,7 @@ export class MasterService {
 
   async getJobCategories() {
     return this.jobCategoryRepository.find({
-      where: { isActive: true },
+      where: { isActive: true, employer: IsNull() },
       select: ['id', 'name'],
       order: { name: 'ASC' },
     });
@@ -50,11 +53,24 @@ export class MasterService {
   }
 
   async getApplicationStatuses() {
-    return this.applicationStatusRepository.find({
-      where: { isActive: true },
-      select: ['id', 'name'],
-      order: { name: 'ASC' },
-    });
+    return this.applicationStatusRepository
+      .createQueryBuilder('status')
+      .select(['status.id', 'status.name'])
+      .where('status.isActive = :isActive', { isActive: true })
+      .orderBy(
+        `CASE LOWER(status.name)
+          WHEN 'applied' THEN 1
+          WHEN 'shortlisted' THEN 3
+          WHEN 'interview scheduled' THEN 4
+          WHEN 'interview completed' THEN 5
+          WHEN 'hired' THEN 6
+          WHEN 'rejected' THEN 7
+          ELSE 99
+        END`,
+        'ASC',
+      )
+      .addOrderBy('status.name', 'ASC')
+      .getMany();
   }
 
   async getUniversities() {
@@ -67,6 +83,14 @@ export class MasterService {
 
   async getMajors() {
     return this.majorRepository.find({
+      where: { isActive: true },
+      select: ['id', 'name'],
+      order: { name: 'ASC' },
+    });
+  }
+
+  async getLanguages() {
+    return this.languageRepository.find({
       where: { isActive: true },
       select: ['id', 'name'],
       order: { name: 'ASC' },

@@ -15,6 +15,10 @@ import { ApplicationStatusHistory } from './application-status-history.entity';
 import { UpdateApplicationStatusDto } from './dto/update-application-status.dto';
 import { Resume } from '../resumes/resume.entity';
 import { EmployerApplicationHistoryDto } from './dto/employer-application-history.dto';
+import { NotificationService } from '../notifications/notification.service';
+import { NotificationType } from '../notifications/notification-type.enum';
+import { NotificationChannel } from '../notifications/notification-channel.enum';
+// import { ApplicationStatus } from './application-status.enum';
 
 const INITIAL_APPLICATION_STATUS_NAMES = ['pending', 'applied'];
 
@@ -33,6 +37,7 @@ export class ApplicationsService {
     private applicationStatusHistoryRepository: Repository<ApplicationStatusHistory>,
     @InjectRepository(Resume)
     private resumeRepository: Repository<Resume>,
+    private notificationService: NotificationService,
   ) {}
 
   async applyToJob(userId: string, dto: CreateApplicationDto) {
@@ -53,7 +58,7 @@ export class ApplicationsService {
     // Get job
     const job = await this.jobRepository.findOne({
       where: { id: dto.jobId },
-      relations: ['status'],
+      relations: ['status', 'employer', 'employer.user'],
     });
     if (!job) {
       throw new NotFoundException('Job not found');
@@ -72,7 +77,6 @@ export class ApplicationsService {
       })
       .orderBy(
         `CASE
-          WHEN LOWER(status.name) = 'pending' THEN 0
           WHEN LOWER(status.name) = 'applied' THEN 1
           ELSE 2
         END`,
@@ -100,6 +104,26 @@ export class ApplicationsService {
       }),
     );
 
+    if (job.employer?.user?.id) {
+      const studentName = `${student.firstName} ${student.lastName}`.trim();
+      await this.notificationService.createNotification(
+        job.employer.user.id,
+        NotificationType.APPLICATION_RECEIVED,
+        'New Application',
+        `${studentName || 'A student'} applied to ${job.title}`,
+        NotificationChannel.BOTH,
+        {
+          referenceId: savedApplication.id,
+          metadata: {
+            applicationId: savedApplication.id,
+            jobId: job.id,
+            jobTitle: job.title,
+            studentName,
+          },
+        },
+      );
+    }
+
     return this.getApplicationById(savedApplication.id, userId);
   }
 
@@ -109,6 +133,7 @@ export class ApplicationsService {
     const query = this.applicationRepository
       .createQueryBuilder('application')
       .innerJoinAndSelect('application.job', 'job')
+      .innerJoinAndSelect('job.employer', 'employer')
       .innerJoinAndSelect('application.currentStatus', 'status')
       .innerJoin('application.student', 'studentProfile')
       .where('studentProfile.id = :studentId', { studentId: student.id });
@@ -144,6 +169,149 @@ export class ApplicationsService {
     }
 
     return application;
+  }
+
+  async getAllApplications(filters?: { today?: boolean; hired?: boolean }) {
+    const query = this.applicationRepository
+      .createQueryBuilder('applicant')
+      .leftJoinAndSelect('applicant.currentStatus', 'status');
+
+    if (filters?.hired) {
+      query.andWhere(
+        '(LOWER(status.name) = :accepted OR LOWER(status.name) = :hired)',
+        {
+          accepted: 'accepted',
+          hired: 'hired',
+        },
+      );
+    }
+
+    if (filters?.today) {
+      query.andWhere('DATE(applicant.appliedAt) = CURRENT_DATE');
+    }
+
+    return query.getMany();
+  }
+
+  async getEmployerDashboard(userId: string) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    const activeJobStatuses = ['published', 'active', 'open'];
+    const hiredStatuses = ['accepted', 'hired'];
+    const hireGoal = 10;
+
+    const scopedApplications = () =>
+      this.applicationRepository
+        .createQueryBuilder('application')
+        .innerJoin('application.job', 'job')
+        .innerJoin('job.employer', 'employer')
+        .innerJoin('employer.user', 'employerUser')
+        .where('employerUser.id = :userId', { userId });
+
+    const [
+      activeJobs,
+      activeJobsDelta,
+      totalApplicants,
+      newApplicantsToday,
+      hiredThisMonthResult,
+      pipelineRows,
+      recentApplications,
+    ] = await Promise.all([
+      this.jobRepository
+        .createQueryBuilder('job')
+        .innerJoin('job.employer', 'employer')
+        .innerJoin('employer.user', 'employerUser')
+        .innerJoin('job.status', 'status')
+        .where('employerUser.id = :userId', { userId })
+        .andWhere('LOWER(status.name) IN (:...activeJobStatuses)', {
+          activeJobStatuses,
+        })
+        .andWhere('(job.deadline IS NULL OR job.deadline >= CURRENT_DATE)')
+        .getCount(),
+      this.jobRepository
+        .createQueryBuilder('job')
+        .innerJoin('job.employer', 'employer')
+        .innerJoin('employer.user', 'employerUser')
+        .innerJoin('job.status', 'status')
+        .where('employerUser.id = :userId', { userId })
+        .andWhere('LOWER(status.name) IN (:...activeJobStatuses)', {
+          activeJobStatuses,
+        })
+        .andWhere('(job.deadline IS NULL OR job.deadline >= CURRENT_DATE)')
+        .andWhere('job.createdAt >= :startOfWeek', { startOfWeek })
+        .getCount(),
+      scopedApplications().getCount(),
+      scopedApplications()
+        .andWhere('application.appliedAt >= :today', { today })
+        .getCount(),
+      this.applicationStatusHistoryRepository
+        .createQueryBuilder('history')
+        .select('COUNT(DISTINCT application.id)', 'count')
+        .innerJoin('history.application', 'application')
+        .innerJoin('history.status', 'status')
+        .innerJoin('application.job', 'job')
+        .innerJoin('job.employer', 'employer')
+        .innerJoin('employer.user', 'employerUser')
+        .where('employerUser.id = :userId', { userId })
+        .andWhere('LOWER(status.name) IN (:...hiredStatuses)', {
+          hiredStatuses,
+        })
+        .andWhere('history.changedAt >= :startOfMonth', { startOfMonth })
+        .getRawOne<{ count: string }>(),
+      scopedApplications()
+        .innerJoin('application.currentStatus', 'status')
+        .select('LOWER(status.name)', 'status')
+        .addSelect('COUNT(application.id)', 'count')
+        .groupBy('LOWER(status.name)')
+        .getRawMany<{ status: string; count: string }>(),
+      this.applicationRepository
+        .createQueryBuilder('application')
+        .innerJoinAndSelect('application.job', 'job')
+        .innerJoin('job.employer', 'employer')
+        .innerJoin('employer.user', 'employerUser')
+        .innerJoinAndSelect('application.currentStatus', 'status')
+        .innerJoinAndSelect('application.student', 'student')
+        .leftJoinAndSelect('student.user', 'studentUser')
+        .leftJoinAndSelect('student.university', 'university')
+        .leftJoinAndSelect('student.major', 'major')
+        .leftJoinAndSelect('application.resume', 'resume')
+        .where('employerUser.id = :userId', { userId })
+        .orderBy('application.appliedAt', 'DESC')
+        .take(10)
+        .getMany(),
+    ]);
+
+    const hiredThisMonth = await this.applicationRepository
+      .createQueryBuilder('application')
+      .innerJoin('application.currentStatus', 'status')
+      .innerJoin('application.job', 'job')
+      .innerJoin('job.employer', 'employer')
+      .innerJoin('employer.user', 'employerUser')
+      .where('employerUser.id = :userId', { userId })
+      .andWhere('LOWER(status.name) = :status', {
+        status: 'hired',
+      })
+      .getCount();
+
+    return {
+      stats: {
+        activeJobs,
+        activeJobsDelta,
+        totalApplicants,
+        newApplicantsToday,
+        hiredThisMonth,
+        hiredGoalPercent: Math.min(
+          Math.round((hiredThisMonth / hireGoal) * 100),
+          100,
+        ),
+      },
+      pipeline: this.toPipelineCounts(pipelineRows),
+      recentApplications,
+    };
   }
 
   async getStudentApplicationHistory(applicationId: string, userId: string) {
@@ -203,7 +371,7 @@ export class ApplicationsService {
         pipeline.pending.push(app);
       } else if (statusName === 'reviewed') {
         pipeline.reviewed.push(app);
-      } else if (statusName === 'interviewing') {
+      } else if (this.isInterviewStatusName(statusName)) {
         pipeline.interviewing.push(app);
       } else if (statusName === 'offered') {
         pipeline.offered.push(app);
@@ -322,7 +490,14 @@ export class ApplicationsService {
   ) {
     const application = await this.applicationRepository.findOne({
       where: { id },
-      relations: ['job', 'job.employer', 'job.employer.user', 'currentStatus'],
+      relations: [
+        'job',
+        'job.employer',
+        'job.employer.user',
+        'currentStatus',
+        'student',
+        'student.user',
+      ],
     });
 
     if (!application) {
@@ -393,7 +568,97 @@ export class ApplicationsService {
       }),
     );
 
+    if (dto.sendNotification) {
+      try {
+        await this.notifyStudentAboutStatusChange(application, nextStatus, dto);
+      } catch (error) {
+        console.error(
+          'Failed to create application status notification:',
+          error,
+        );
+      }
+    }
+
     return this.getEmployerApplicationById(id, userId);
+  }
+
+  private async notifyStudentAboutStatusChange(
+    application: Application,
+    nextStatus: ApplicationStatus,
+    dto: UpdateApplicationStatusDto,
+  ) {
+    const studentUserId = application.student?.user?.id;
+
+    if (!studentUserId) {
+      return;
+    }
+
+    const statusName = nextStatus.name;
+    const normalizedStatus = statusName.toLowerCase();
+    const studentName = `${application.student?.firstName ?? ''} ${
+      application.student?.lastName ?? ''
+    }`.trim();
+    const jobTitle = application.job?.title ?? 'your application';
+    const interviewText = this.formatInterviewDetails(dto.interviewDetails);
+
+    const title = this.isInterviewStatusName(normalizedStatus)
+      ? 'Interview Scheduled'
+      : 'Application Status Updated';
+
+    const message = this.isInterviewStatusName(normalizedStatus)
+      ? `Your interview for ${jobTitle} has been scheduled${interviewText}.`
+      : `Your application for ${jobTitle} was moved to ${statusName}.`;
+
+    await this.notificationService.createNotification(
+      studentUserId,
+      this.getNotificationTypeForStatus(normalizedStatus),
+      title,
+      message,
+      NotificationChannel.BOTH,
+      {
+        referenceId: application.id,
+        metadata: {
+          applicationId: application.id,
+          jobId: application.job?.id,
+          jobTitle,
+          studentName,
+          status: statusName,
+          interviewDetails: dto.interviewDetails ?? null,
+        },
+      },
+    );
+  }
+
+  private getNotificationTypeForStatus(statusName: string): NotificationType {
+    if (this.isInterviewStatusName(statusName)) {
+      return NotificationType.APPLICATION_INTERVIEW_SCHEDULED;
+    }
+
+    if (this.isAcceptedStatusName(statusName)) {
+      return NotificationType.APPLICATION_ACCEPTED;
+    }
+
+    if (statusName === 'rejected') {
+      return NotificationType.APPLICATION_REJECTED;
+    }
+
+    return NotificationType.APPLICATION_RECEIVED;
+  }
+
+  private formatInterviewDetails(
+    details?: UpdateApplicationStatusDto['interviewDetails'],
+  ) {
+    if (!details) {
+      return '';
+    }
+
+    const schedule = [details.date, details.time].filter(Boolean).join(' at ');
+
+    if (schedule && details.meetingType) {
+      return ` on ${schedule} via ${details.meetingType}`;
+    }
+
+    return schedule ? ` on ${schedule}` : '';
   }
 
   private async getStudentProfileByUserId(userId: string) {
@@ -454,6 +719,47 @@ export class ApplicationsService {
   private isAcceptedStatusName(statusName?: string | null) {
     const normalized = (statusName ?? '').trim().toLowerCase();
     return normalized === 'accepted' || normalized === 'hired';
+  }
+
+  private isInterviewStatusName(statusName?: string | null) {
+    const normalized = (statusName ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, '_');
+
+    return (
+      normalized === 'interview_schedule' ||
+      normalized === 'interview_scheduled'
+    );
+  }
+
+  private toPipelineCounts(rows: { status: string; count: string }[]) {
+    const pipeline = {
+      pending: 0,
+      reviewed: 0,
+      interviewing: 0,
+      offered: 0,
+      rejected: 0,
+    };
+
+    for (const row of rows) {
+      const status = (row.status ?? '').trim().toLowerCase();
+      const count = Number(row.count ?? 0);
+
+      if (status === 'pending' || status === 'applied') {
+        pipeline.pending += count;
+      } else if (status === 'reviewed') {
+        pipeline.reviewed += count;
+      } else if (this.isInterviewStatusName(status)) {
+        pipeline.interviewing += count;
+      } else if (status === 'offered') {
+        pipeline.offered += count;
+      } else if (status === 'rejected') {
+        pipeline.rejected += count;
+      }
+    }
+
+    return pipeline;
   }
 
   private async getResumeOwnedByUser(resumeId: string, userId: string) {

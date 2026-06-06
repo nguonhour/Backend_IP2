@@ -2,10 +2,11 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
-import { StudentProfile } from './student-profile.entity';
+import { In, QueryFailedError, Repository } from 'typeorm';
 import { SavedJob } from '../jobs/saved-job.entity';
 import { Job } from '../jobs/job.entity';
 import { Resume } from '../resumes/resume.entity';
@@ -16,8 +17,22 @@ import { Skill } from '../../entities/master';
 import { Industry } from '../../entities/master/industry.entity';
 import { AddStudentSkillDto } from './dto/add-student-skill.dto';
 import { StudentSkill } from './student-skill.entity';
+import { StudentProfile } from './student-profile.entity';
+import { StudentLanguage } from './student-language.entity';
 import { AddStudentIndustryDto } from './dto/add-student-industry.dto';
 import { StudentIndustry } from './student-industry.entity';
+import { UpdateStudentDto } from './dto/update-student.dto';
+import { SetStudentSkillDto } from './dto/set-student-skill.dto';
+
+type UpdateStudentExperience = {
+  title?: unknown;
+  description?: unknown;
+};
+
+type UpdateStudentLanguage = {
+  language?: unknown;
+  level?: unknown;
+};
 
 @Injectable()
 export class StudentProfilesService {
@@ -43,7 +58,7 @@ export class StudentProfilesService {
     @InjectRepository(Industry)
     private industryRepository: Repository<Industry>,
     @InjectRepository(StudentIndustry)
-    private studentIndustryRepository: Repository<StudentIndustry>
+    private studentIndustryRepository: Repository<StudentIndustry>,
   ) {}
 
   async saveJob(userId: string, jobId: string): Promise<SavedJob> {
@@ -111,8 +126,22 @@ export class StudentProfilesService {
     return { message: 'Job removed from saved list' };
   }
 
-
   private async getStudentProfileByUserId(userId: string) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['role'],
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User not found for id ${userId}`);
+    }
+
+    if (user.role?.name?.toUpperCase() !== 'STUDENT') {
+      throw new ForbiddenException(
+        'Only student accounts can access student profiles',
+      );
+    }
+
     let student = await this.studentProfileRepository.findOne({
       where: { user: { id: userId } },
       relations: ['user'],
@@ -120,20 +149,46 @@ export class StudentProfilesService {
 
     // Auto-create profile if it doesn't exist (for CV saves without prior profile creation)
     if (!student) {
+      const profile = new StudentProfile();
+      profile.firstName = 'Student';
+      profile.lastName = '';
+      profile.user = user;
+
       try {
-        const user = await this.userRepository.findOne({ where: { id: userId } });
+        const user = await this.userRepository.findOne({
+          where: { id: userId },
+          relations: ['role'],
+        });
         if (!user) {
           throw new NotFoundException(`User not found for id ${userId}`);
+        }
+
+        // Only auto-create a StudentProfile if the user's role is STUDENT
+        if (!user.role || (user.role.name ?? '').toUpperCase() !== 'STUDENT') {
+          throw new NotFoundException(
+            `Student profile not found for user ${userId}`,
+          );
         }
 
         const profile = new StudentProfile();
         profile.firstName = 'Student';
         profile.lastName = '';
         profile.user = user;
-        
+
         student = await this.studentProfileRepository.save(profile);
         console.log('Auto-created StudentProfile:', student.id);
       } catch (err) {
+        if (this.isUniqueViolation(err)) {
+          student = await this.studentProfileRepository.findOne({
+            where: { user: { id: userId } },
+            relations: ['user'],
+          });
+
+          if (student) {
+            return student;
+          }
+        }
+
         console.error('Failed to auto-create StudentProfile:', err);
         throw new NotFoundException(
           `Student profile not found for user ${userId}`,
@@ -144,12 +199,51 @@ export class StudentProfilesService {
     return student;
   }
 
+  private isUniqueViolation(error: unknown): boolean {
+    return (
+      error instanceof QueryFailedError &&
+      (error.driverError as { code?: string } | undefined)?.code === '23505'
+    );
+  }
+
   async getProfile(userId: string): Promise<StudentProfile | null> {
     const student = await this.getStudentProfileByUserId(userId);
 
     const profile = await this.studentProfileRepository.findOne({
       where: { id: student.id },
-      relations: ['user', 'university', 'major', 'studentSkills', 'studentIndustries'],
+      relations: [
+        'user',
+        'university',
+        'major',
+        'studentSkills',
+        'studentSkills.skill',
+        'studentIndustries',
+      ],
+    });
+
+    if (!profile) {
+      return null;
+    }
+
+    const resumes = await this.resumeRepository.find({
+      where: { studentId: profile.id },
+      order: { createdAt: 'DESC' },
+    });
+
+    (profile as StudentProfile & { resumes?: Resume[] }).resumes = resumes;
+    return profile;
+  }
+
+  async getProfileById(studentId: string): Promise<StudentProfile | null> {
+    const profile = await this.studentProfileRepository.findOne({
+      where: { id: studentId },
+      relations: [
+        'user',
+        'university',
+        'major',
+        'studentSkills',
+        'studentIndustries',
+      ],
     });
 
     if (!profile) {
@@ -167,21 +261,56 @@ export class StudentProfilesService {
 
   async updateProfile(
     userId: string,
-    dto: Partial<{
-      firstName: string;
-      lastName: string;
-      avatarUrl: string;
-      yearOfStudy: number;
-      universityName: string;
-      majorName: string;
-    }>,
+    dto: UpdateStudentDto,
   ): Promise<StudentProfile> {
     const student = await this.getStudentProfileByUserId(userId);
 
     if (dto.firstName !== undefined) student.firstName = dto.firstName;
     if (dto.lastName !== undefined) student.lastName = dto.lastName;
     if (dto.avatarUrl !== undefined) student.avatarUrl = dto.avatarUrl;
+    if (typeof dto.aboutMe === 'string') {
+      const normalizedAboutMe = dto.aboutMe.trim();
+      student.aboutMe = normalizedAboutMe.length > 0 ? normalizedAboutMe : null;
+    }
     if (dto.yearOfStudy !== undefined) student.yearOfStudy = dto.yearOfStudy;
+
+    if (Array.isArray(dto.experiences)) {
+      student.experiences = dto.experiences
+        .map((experience: UpdateStudentExperience) => ({
+          title:
+            typeof experience.title === 'string' ? experience.title.trim() : '',
+          description:
+            typeof experience.description === 'string'
+              ? experience.description.trim()
+              : '',
+        }))
+        .filter(
+          (experience: { title: string; description: string }) =>
+            experience.title.length > 0 || experience.description.length > 0,
+        );
+    }
+
+    if (Array.isArray(dto.expertise)) {
+      student.expertise = dto.expertise
+        .map((item: unknown) => (typeof item === 'string' ? item.trim() : ''))
+        .filter((item: string) => item.length > 0);
+    }
+
+    if (Array.isArray(dto.languages)) {
+      student.languages = dto.languages
+        .map((language: UpdateStudentLanguage) => ({
+          language:
+            typeof language.language === 'string'
+              ? language.language.trim()
+              : '',
+          level:
+            typeof language.level === 'string' ? language.level.trim() : '',
+        }))
+        .filter(
+          (language: { language: string; level: string }) =>
+            language.language.length > 0 || language.level.length > 0,
+        );
+    }
 
     if (dto.universityName !== undefined) {
       const normalizedUniversityName = dto.universityName.trim();
@@ -246,7 +375,6 @@ export class StudentProfilesService {
     const student = await this.getStudentProfileByUserId(userId);
     console.log('Adding resume for student:', student.id);
 
-    // Mark any existing default resumes as non-default using QueryBuilder
     await this.resumeRepository
       .createQueryBuilder()
       .update(Resume)
@@ -265,19 +393,18 @@ export class StudentProfilesService {
     return this.resumeRepository.save(resume);
   }
 
-
   async addSkills(userId: string, dto: AddStudentSkillDto) {
     const student = await this.getStudentProfileByUserId(userId);
-    if(!student) {
+    if (!student) {
       throw new NotFoundException('Student profile not found');
     }
 
     const normalized = dto.skills
       .map((skill) => skill.trim())
-      .filter((skill) => skill.length > 0)
+      .filter((skill) => skill.length > 0);
 
     if (normalized.length === 0) {
-      return { message: 'No skills provided' }
+      return { message: 'No skills provided' };
     }
 
     const existingSkills = await this.skillRepository
@@ -287,14 +414,15 @@ export class StudentProfilesService {
       })
       .getMany();
 
-    const existingNames = new Set(existingSkills.map((s) => s.name.toLowerCase()));
+    const existingNames = new Set(
+      existingSkills.map((s) => s.name.toLowerCase()),
+    );
     const newSkills = normalized
       .filter((name) => !existingNames.has(name.toLowerCase()))
       .map((name) => this.skillRepository.create({ name }));
 
-    const createdSkills = newSkills.length > 0
-      ? await this.skillRepository.save(newSkills)
-      : [];
+    const createdSkills =
+      newSkills.length > 0 ? await this.skillRepository.save(newSkills) : [];
 
     const allSkills = [...existingSkills, ...createdSkills];
 
@@ -302,7 +430,9 @@ export class StudentProfilesService {
       where: { studentId: student.id },
     });
 
-    const existingSkillIds = new Set(existingStudentSkills.map((s) => s.skillId));
+    const existingSkillIds = new Set(
+      existingStudentSkills.map((s) => s.skillId),
+    );
 
     const toInsert = allSkills
       .filter((skill) => !existingSkillIds.has(skill.id))
@@ -318,7 +448,96 @@ export class StudentProfilesService {
     }
 
     return { message: 'Skills updated', added: toInsert.length };
+  }
 
+  async setSkills(
+    userId: string,
+    dto: SetStudentSkillDto,
+  ): Promise<{ message: string; added: number; removed: number }> {
+    const student = await this.getStudentProfileByUserId(userId);
+    if (!student) {
+      throw new NotFoundException('Student profile not found');
+    }
+
+    const normalized = Array.from(
+      new Set(
+        dto.skills
+          .map((skill) => skill.trim())
+          .filter((skill) => skill.length > 0)
+          .map((skill) => skill.toLowerCase()),
+      ),
+    );
+
+    const existingStudentSkills = await this.studentSkillRepository.find({
+      where: { studentId: student.id },
+    });
+
+    if (normalized.length === 0) {
+      await this.studentSkillRepository.delete({ studentId: student.id });
+      return {
+        message: 'Skills replaced',
+        added: 0,
+        removed: existingStudentSkills.length,
+      };
+    }
+
+    const existingSkills = await this.skillRepository
+      .createQueryBuilder('skill')
+      .where('LOWER(skill.name) IN (:...names)', {
+        names: normalized,
+      })
+      .getMany();
+
+    const skillIdByName = new Map(
+      existingSkills.map((skill) => [skill.name.toLowerCase(), skill.id]),
+    );
+
+    const invalidSkills = normalized.filter((name) => !skillIdByName.has(name));
+    if (invalidSkills.length > 0) {
+      throw new BadRequestException(
+        `Invalid skills provided: ${invalidSkills.join(', ')}`,
+      );
+    }
+
+    const targetSkillIds = new Set(
+      normalized
+        .map((name) => skillIdByName.get(name))
+        .filter((id): id is string => Boolean(id)),
+    );
+
+    const currentSkillIds = new Set(
+      existingStudentSkills.map((item) => item.skillId),
+    );
+
+    const toInsert = Array.from(targetSkillIds)
+      .filter((skillId) => !currentSkillIds.has(skillId))
+      .map((skillId) =>
+        this.studentSkillRepository.create({
+          studentId: student.id,
+          skillId,
+        }),
+      );
+
+    const toRemove = Array.from(currentSkillIds).filter(
+      (skillId) => !targetSkillIds.has(skillId),
+    );
+
+    if (toInsert.length > 0) {
+      await this.studentSkillRepository.save(toInsert);
+    }
+
+    if (toRemove.length > 0) {
+      await this.studentSkillRepository.delete({
+        studentId: student.id,
+        skillId: In(toRemove),
+      });
+    }
+
+    return {
+      message: 'Skills replaced',
+      added: toInsert.length,
+      removed: toRemove.length,
+    };
   }
 
   async addIndustries(userId: string, dto: AddStudentIndustryDto) {
@@ -349,15 +568,18 @@ export class StudentProfilesService {
       .filter((name) => !existingNames.has(name.toLowerCase()))
       .map((name) => this.industryRepository.create({ name }));
 
-    const createdIndustries = newIndustries.length > 0
-      ? await this.industryRepository.save(newIndustries)
-      : [];
+    const createdIndustries =
+      newIndustries.length > 0
+        ? await this.industryRepository.save(newIndustries)
+        : [];
 
     const allIndustries = [...existingIndustries, ...createdIndustries];
 
-    const existingStudentIndustries = await this.studentIndustryRepository.find({
-      where: { studentId: student.id },
-    });
+    const existingStudentIndustries = await this.studentIndustryRepository.find(
+      {
+        where: { studentId: student.id },
+      },
+    );
 
     const existingIndustryIds = new Set(
       existingStudentIndustries.map((i) => i.industryId),
@@ -377,5 +599,93 @@ export class StudentProfilesService {
     }
 
     return { message: 'Industries updated', added: toInsert.length };
+  }
+
+  async setLanguages(userId: string, dto: { languages: { language: string; level: string }[] }) {
+    const student = await this.getStudentProfileByUserId(userId);
+    if (!student) {
+      throw new NotFoundException('Student profile not found');
+    }
+
+    const normalized = dto.languages
+      .map((l) => ({
+        language: (l.language ?? '').toString().trim(),
+        level: (l.level ?? '').toString().trim(),
+      }))
+      .filter((l) => l.language.length > 0 || l.level.length > 0);
+
+    const existingStudentLanguages: StudentLanguage[] = await this.studentProfileRepository
+      .createQueryBuilder('sp')
+      .leftJoinAndSelect('sp.studentLanguages', 'studentLanguage')
+      .where('sp.id = :id', { id: student.id })
+      .getOne()
+      .then((s) => (s ? (s.studentLanguages as StudentLanguage[]) : []));
+
+    // If no languages provided, delete all existing
+    if (normalized.length === 0) {
+      // delete via repository
+      await this.studentProfileRepository.manager.delete('student_languages', { student_id: student.id }).catch(() => undefined);
+      return { message: 'Languages replaced', added: 0, removed: existingStudentLanguages.length };
+    }
+
+    // Ensure master language records exist (create if missing)
+    const names = Array.from(new Set(normalized.map((n) => n.language.toLowerCase())));
+    const existingMasters = await this.studentProfileRepository.manager.getRepository('m_languages').createQueryBuilder('lang').where('LOWER(lang.name) IN (:...names)', { names }).getMany().catch(() => []);
+
+    const existingNameToId = new Map<string, string>(existingMasters.map((m: any) => [m.name.toLowerCase(), m.id] as [string, string]));
+
+    const toCreate = names.filter((n) => !existingNameToId.has(n)).map((n) => ({ name: n, is_active: true }));
+    let created: any[] = [];
+    if (toCreate.length > 0) {
+      // insert and return created rows
+      const insertRes = await this.studentProfileRepository.manager.getRepository('m_languages').createQueryBuilder().insert().values(toCreate).returning('*').execute().catch(() => null);
+      if (insertRes && insertRes.raw) created = insertRes.raw;
+    }
+
+    // refresh master map
+    const allMasters = [...existingMasters, ...created];
+    allMasters.forEach((m: any) => existingNameToId.set(m.name.toLowerCase(), m.id));
+
+    // Build target map of languageId -> level
+    const target = new Map<string, string>();
+    normalized.forEach((item) => {
+      const id = existingNameToId.get(item.language.toLowerCase());
+      if (id) target.set(id as string, item.level || '');
+    });
+
+    // current language ids
+    const currentLangIds = new Set(
+      existingStudentLanguages.map((sl) => sl.languageId),
+    );
+
+    const toInsert = Array.from(target.entries())
+      .filter(([langId]) => !currentLangIds.has(langId))
+      .map(([langId, level]) => ({ student_id: student.id, language_id: langId, level }));
+
+    const toUpdate = Array.from(target.entries())
+      .filter(([langId]) => currentLangIds.has(langId))
+      .map(([langId, level]) => ({ language_id: langId, level }));
+
+    const toRemove = Array.from(currentLangIds).filter((id) => !target.has(id));
+
+    // perform DB ops
+    if (toInsert.length > 0) {
+      await this.studentProfileRepository.manager.getRepository('student_languages').createQueryBuilder().insert().values(toInsert).execute().catch(() => undefined);
+    }
+
+    if (toUpdate.length > 0) {
+      // update levels for existing rows
+      for (const [langId, level] of target.entries()) {
+        if (currentLangIds.has(langId)) {
+          await this.studentProfileRepository.manager.getRepository('student_languages').createQueryBuilder().update().set({ level }).where('student_id = :studentId AND language_id = :langId', { studentId: student.id, langId }).execute().catch(() => undefined);
+        }
+      }
+    }
+
+    if (toRemove.length > 0) {
+      await this.studentProfileRepository.manager.getRepository('student_languages').createQueryBuilder().delete().where('student_id = :studentId AND language_id IN (:...ids)', { studentId: student.id, ids: toRemove }).execute().catch(() => undefined);
+    }
+
+    return { message: 'Languages replaced', added: toInsert.length, removed: toRemove.length };
   }
 }

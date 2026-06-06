@@ -5,7 +5,10 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { createHmac } from 'crypto';
+import { DataSource } from 'typeorm';
 import type { AuthenticatedRequest } from '../../../common/types/auth-request.type';
+import { User } from '../../users/user.entity';
+import { UserStatus } from '../../users/user-status.enum';
 
 interface TokenPayload {
   sub: string;
@@ -19,11 +22,11 @@ interface TokenPayload {
 export class JwtAuthGuard implements CanActivate {
   private readonly secret: string;
 
-  constructor() {
+  constructor(private readonly dataSource: DataSource) {
     this.secret = process.env.JWT_SECRET || 'dev-only-secret';
   }
 
-  canActivate(context: ExecutionContext): Promise<boolean> {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const authHeader = request.headers.authorization;
 
@@ -35,9 +38,21 @@ export class JwtAuthGuard implements CanActivate {
 
     const token = authHeader.split(' ')[1];
     const payload = this.verifyToken(token);
+    const user = await this.dataSource.getRepository(User).findOne({
+      where: { id: payload.sub },
+      relations: ['role'],
+    });
 
-    request.user = { id: payload.sub };
-    return Promise.resolve(true);
+    if (!user || user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException('Account is not active');
+    }
+
+    request.user = {
+      id: payload.sub,
+      email: payload.email,
+      role: user.role?.name ?? payload.role,
+    };
+    return true;
   }
 
   private verifyToken(token: string): TokenPayload {

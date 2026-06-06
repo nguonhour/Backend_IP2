@@ -12,7 +12,7 @@ import { EmployerProfile } from '../employer-profiles/employer-profile.entity';
 import { JobCategory } from '../../entities/master/job-category.entity';
 import { JobType } from '../../entities/master/job-type.entity';
 import { JobStatus } from '../../entities/master/job-status.entity';
-import { Payment } from '../payments/payment.entity';
+import { JobsRepository } from './repository/jobs.repository';
 
 @Module({
   imports: [
@@ -27,10 +27,10 @@ import { Payment } from '../payments/payment.entity';
       JobType,
       JobStatus,
       JobHistory,
-      Payment,
     ]),
   ],
   controllers: [JobsController],
-  providers: [JobsService],
+  providers: [JobsService, JobsRepository],
+  exports: [JobsRepository],
 })
 export class JobsModule {}

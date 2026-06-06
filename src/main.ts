@@ -5,29 +5,38 @@ import { ClassSerializerInterceptor } from '@nestjs/common';
 import { initializeDatabase } from './database/init-hook';
 import { DataSource } from 'typeorm';
 import cookieParser from 'cookie-parser';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
-  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)))
-
-  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)))
+  const reflector = app.get(Reflector);
+  app.useGlobalInterceptors(
+    new ClassSerializerInterceptor(reflector),
+    app.get(AuditInterceptor),
+  );
 
   // Initialize database constraints
   try {
-    const dataSource = app.get(DataSource);
+    const dataSource = app.get<DataSource>(DataSource);
     await initializeDatabase(dataSource);
   } catch (err) {
-    console.error('Failed to initialize database:', err);
+    const error = err instanceof Error ? err : new Error(String(err));
+    console.error('Failed to initialize database:', error);
   }
 
-  const corsOrigins = (process.env.CORS_ORIGIN ?? '*')
+  // const corsOrigins = (process.env.CORS_ORIGIN ?? '*')
+  const corsOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:5173')
     .split(',')
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
 
   app.enableCors({
-    origin: (requestOrigin, callback) => {
+    origin: (
+      requestOrigin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
       if (!requestOrigin) return callback(null, true);
       if (corsOrigins.includes('*') || corsOrigins.includes(requestOrigin)) {
         return callback(null, true);
@@ -36,7 +45,11 @@ async function bootstrap() {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'ngrok-skip-browser-warning',
+    ],
     optionsSuccessStatus: 204,
   });
 
@@ -47,6 +60,8 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
   app.use(cookieParser());
 

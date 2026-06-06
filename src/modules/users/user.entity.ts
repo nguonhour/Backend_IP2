@@ -14,7 +14,7 @@ import { StudentProfile } from '../../modules/student-profiles/student-profile.e
 import { EmployerProfile } from '../../modules/employer-profiles/employer-profile.entity';
 import { Notification } from '../notifications/notification.entity';
 import { ApplicationStatusHistory } from '../applications/application-status-history.entity';
-import { Report } from '../reports/report.entity';
+import { UserStatus } from './user-status.enum';
 
 @Entity('users')
 export class User {
@@ -42,14 +42,36 @@ export class User {
   @Column({ name: 'is_verified', type: 'boolean', default: false })
   isVerified: boolean;
 
+  @Column({
+    name: 'status',
+    type: 'varchar',
+    enum: UserStatus,
+    default: UserStatus.ACTIVE,
+  })
+  status: UserStatus;
+
   @Column({ name: 'refresh_token_hash', type: 'varchar', nullable: true })
   refreshTokenHash: string | null;
 
-  @Column({ name: 'email_verification_token_hash', type: 'varchar', nullable: true })
+  @Column({
+    name: 'email_verification_token_hash',
+    type: 'varchar',
+    nullable: true,
+  })
   emailVerificationTokenHash: string | null;
 
-  @Column({ name: 'email_verification_expires_at', type: 'timestamp', nullable: true })
+  @Column({
+    name: 'email_verification_expires_at',
+    type: 'timestamp',
+    nullable: true,
+  })
   emailVerificationExpiresAt: Date | null;
+
+  @Column({ name: 'reset_token_hash', type: 'varchar', nullable: true })
+  resetTokenHash: string | null;
+
+  @Column({ name: 'reset_token_expires_at', type: 'timestamp', nullable: true })
+  resetTokenExpiresAt: Date | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
@@ -68,7 +90,4 @@ export class User {
 
   @OneToMany(() => ApplicationStatusHistory, (history) => history.changedBy)
   applicationStatusChanges: ApplicationStatusHistory[];
-
-  @OneToMany(() => Report, (report) => report.reporter)
-  reports: Report[];
 }

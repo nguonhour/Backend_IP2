@@ -44,5 +44,4 @@ export class Application {
 
   @OneToMany(() => ApplicationStatusHistory, (history) => history.application)
   statusHistory: ApplicationStatusHistory[];
-
 }

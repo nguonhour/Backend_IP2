@@ -4,9 +4,9 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { createHash } from 'crypto';
 import { UserRepository } from '../repositories/user.repository';
 import { TokenService } from '../services/token.service';
+import { UserStatus } from '../../users/user-status.enum';
 
 @Injectable()
 export class RefreshTokenUseCase {
@@ -29,6 +29,12 @@ export class RefreshTokenUseCase {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException(
+        `Your account is ${user.status.toLowerCase().replace('_', ' ')}`,
+      );
+    }
+
     // Generate new tokens
     const tokens = this.tokenService.generateTokens(user);
 
@@ -38,17 +44,22 @@ export class RefreshTokenUseCase {
     // Set new refresh token as httpOnly cookie
     res.cookie('refresh_token', tokens.refreshToken, {
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       secure: process.env.NODE_ENV === 'production',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
     return {
       accessToken: tokens.accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role?.name,
+      },
     };
   }
 
   private hashToken(token: string): string {
-    return createHash('sha256').update(token).digest('hex');
+    return Buffer.from(token).toString('base64url');
   }
 }

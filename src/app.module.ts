@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
+import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 
 // Modules
 import { AuthModule } from './modules/auth/auth.module';
@@ -14,11 +15,13 @@ import { ResumesModule } from './modules/resumes/resumes.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { StudentCompanyPreferencesModule } from './modules/student-company-preferences/student-company-preferences.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { MasterModule } from './entities/master/master.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { SkillsModule } from './modules/skills/skills.module';
 import { IndustriesModule } from './modules/industries/industries.module';
+import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -41,6 +44,7 @@ function parseBoolean(value: string | undefined, fallback = false): boolean {
 
 @Module({
   controllers: [AppController],
+  providers: [AuditInterceptor],
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
@@ -87,11 +91,13 @@ function parseBoolean(value: string | undefined, fallback = false): boolean {
     ReviewsModule,
     NotificationsModule,
     ReportsModule,
+    StudentCompanyPreferencesModule,
     PaymentsModule,
     MasterModule,
     AdminModule,
     SkillsModule,
     IndustriesModule,
+    AuditLogsModule,
   ],
 })
 export class AppModule {}

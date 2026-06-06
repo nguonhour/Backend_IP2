@@ -2,8 +2,9 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Notification } from './notification.entity';
-import { CreateNotificationDto } from './dto/update-notification.dto';
+// import { CreateNotificationDto } from './dto/update-notification.dto';
 import { NotificationsGateway } from './notifications.gateway';
+import { CreateNotificationDto } from './dto/CreateNotification.dto';
 
 @Injectable()
 export class NotificationService {
@@ -25,7 +26,7 @@ export class NotificationService {
       type: data.type,
       message: data.message,
       referenceId: data.reference_id,
-      user: { id: data.user_id },
+      user: { id: data.user_id } as any,
       isRead: false,
     });
 

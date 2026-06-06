@@ -95,6 +95,10 @@ export class UserRepository {
     );
   }
 
+  async clearRefreshToken(userId: string): Promise<void> {
+    await this.userRepository.update({ id: userId }, { refreshTokenHash: null });
+  }
+
   async updatePasswordHash(
     userId: string,
     passwordHash: string,
@@ -113,6 +117,31 @@ export class UserRepository {
         emailVerificationTokenHash: tokenHash,
         emailVerificationExpiresAt: expiresAt,
       },
+    );
+  }
+
+  async updateResetToken(
+    userId: string,
+    tokenHash: string | null,
+    expiresAt: Date | null,
+  ): Promise<void> {
+    await this.userRepository.update(
+      { id: userId },
+      { resetTokenHash: tokenHash, resetTokenExpiresAt: expiresAt },
+    );
+  }
+
+  async findByResetTokenHash(tokenHash: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { resetTokenHash: tokenHash },
+      relations: ['role'],
+    });
+  }
+
+  async clearResetToken(userId: string): Promise<void> {
+    await this.userRepository.update(
+      { id: userId },
+      { resetTokenHash: null, resetTokenExpiresAt: null },
     );
   }
 

@@ -1,6 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
 import { Job } from '../../modules/jobs/job.entity';
-export enum Type {
+export enum TypeJob {
   OnSite = 'On-site',
   Remote = 'Remote',
   Hybrid = 'Hybrid',

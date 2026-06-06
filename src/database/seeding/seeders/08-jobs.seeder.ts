@@ -4,8 +4,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 
 import { Repository } from 'typeorm';
 
-import * as jobsData from '../data/jobs.json';
+// Import JSON using require to avoid needing --resolveJsonModule in tsconfig
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const jobsData: any = require('../data/jobs.json');
 import { Job } from '../../../modules/jobs/job.entity';
+import { JobApprovalStatus } from '../../../modules/jobs/job-approval-status.enum';
 import { JobCategory, JobStatus, JobType } from '../../../entities/master';
 import { EmployerProfile } from '../../../modules/employer-profiles/employer-profile.entity';
 import { User } from '../../../modules/users/user.entity';
@@ -46,7 +49,14 @@ export class JobsSeeder implements Seeder {
 
     const [category] = await this.jobCategoryRepository.find({ take: 1 });
     const [jobType] = await this.jobTypeRepository.find({ take: 1 });
-    const [status] = await this.jobStatusRepository.find({ take: 1 });
+    const [fallbackStatus] = await this.jobStatusRepository.find({ take: 1 });
+    const status =
+      (await this.jobStatusRepository
+        .createQueryBuilder('status')
+        .where('LOWER(status.name) IN (:...names)', {
+          names: ['open', 'active', 'published'],
+        })
+        .getOne()) ?? fallbackStatus;
 
     // Safety check: Ensure the related data exists before we try to create jobs
     if (!employer || !category || !jobType || !status) {
@@ -83,6 +93,7 @@ export class JobsSeeder implements Seeder {
         category,
         jobType,
         status,
+        approvalStatus: JobApprovalStatus.APPROVED,
         // Convert the string deadline from JSON into a proper JavaScript Date object
         deadline: new Date(jobData.deadline),
       });

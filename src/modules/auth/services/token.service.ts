@@ -15,15 +15,20 @@ export class TokenService {
     accessToken: string;
     refreshToken: string;
   } {
-    const role = user.role?.name ?? 'STUDENT';
+    const role = user.role?.name.toUpperCase();
+
+    if (!role) {
+      throw new Error('User role is required to generate tokens');
+    }
 
     const accessToken = this.sign(
       { sub: user.id, email: user.email, role },
-      60 * 15,
+      60 * 60, // 1 hour
     );
+
     const refreshToken = this.sign(
       { sub: user.id, email: user.email, role, type: 'refresh' },
-      60 * 60 * 24 * 7,
+      60 * 60 * 24 * 7, // 7 days
     );
 
     return { accessToken, refreshToken };

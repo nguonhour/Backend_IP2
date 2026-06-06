@@ -7,6 +7,7 @@ import { Response } from 'express';
 import { createHash } from 'crypto';
 import { UserRepository } from '../repositories/user.repository';
 import { TokenService } from '../services/token.service';
+import { UserStatus } from '../../users/user-status.enum';
 
 @Injectable()
 export class LoginUseCase {
@@ -24,6 +25,12 @@ export class LoginUseCase {
 
     if (!user.isVerified) {
       throw new UnauthorizedException('Email not verified');
+    }
+
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException(
+        `Your account is ${user.status.toLowerCase().replace('_', ' ')}`,
+      );
     }
 
     // Verify password
@@ -45,11 +52,14 @@ export class LoginUseCase {
     // Update refresh token
     await this.userRepo.updateRefreshToken(user.id, tokens.refreshToken);
 
-    // Set refresh token as httpOnly cookie
+    // Set refresh token as httpOnly cookie. Use secure+samesite settings
+    // appropriate for production vs local development.
+    const isProd = process.env.NODE_ENV === 'production';
+
     res.cookie('refresh_token', tokens.refreshToken, {
       httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      sameSite: isProd ? 'none' : 'lax',
+      secure: isProd,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 

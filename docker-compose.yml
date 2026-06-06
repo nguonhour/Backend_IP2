@@ -20,11 +20,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: dev  
+      target: dev
+    command: sh -c "rm -f tsconfig.build.tsbuildinfo && npm run build && npm run start:prod"
     container_name: project_ip2_backend
     environment:
-      NODE_ENV: production
-      PORT: 3211:3001
+      NODE_ENV: development
+      # PORT: 3211:3001
       DATABASE_URL: ${DATABASE_URL}
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_KEY: ${SUPABASE_KEY}
@@ -33,12 +34,16 @@ services:
       DB_USERNAME: ${DB_USERNAME:-root}
       DB_PASSWORD: ${DB_PASSWORD:-Hnh00900}
       DB_NAME: ${DB_NAME:-student_part_time}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      SENDGRID_FROM: ${SENDGRID_FROM}
+      APP_BASE_URL: ${APP_BASE_URL}
+      FRONTEND_URL: ${FRONTEND_URL}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5174}
     depends_on:
       db:
         condition: service_healthy
     ports:
-      - "${PORT:-3211}:3211"
+      - "3211:3001"
     volumes:
       - .:/app                          # ← mounts your local code into container
       - /app/node_modules               # ← prevents local node_modules from overwriting container's

@@ -9,13 +9,41 @@ export async function initializeDatabase(dataSource: DataSource) {
       `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS longitude numeric(10, 7)`,
     );
     console.log('[InitDB] Ensured latitude/longitude columns exist on jobs');
+    await dataSource.query(
+      `ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_method varchar`,
+    );
+    await dataSource.query(
+      `ALTER TABLE payments ADD COLUMN IF NOT EXISTS transaction_ref varchar`,
+    );
+    await dataSource.query(
+      `ALTER TABLE payments ADD COLUMN IF NOT EXISTS plan_name varchar`,
+    );
+    await dataSource.query(
+      `ALTER TABLE payments ADD COLUMN IF NOT EXISTS expires_at timestamp`,
+    );
+    await dataSource.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_payments_transaction_ref" ON payments (transaction_ref)`,
+    );
+    console.log('[InitDB] Ensured payment checkout columns exist on payments');
   } catch (err) {
-    console.error('[InitDB] Error ensuring jobs map columns:', err);
+    console.error('[InitDB] Error ensuring payment checkout columns:', err);
   }
 
   try {
     await dataSource.query(
       `ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS external_user_id varchar`,
+    );
+    await dataSource.query(
+      `ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS about_me text`,
+    );
+    await dataSource.query(
+      `ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS experiences jsonb DEFAULT '[]'::jsonb`,
+    );
+    await dataSource.query(
+      `ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS expertise jsonb DEFAULT '[]'::jsonb`,
+    );
+    await dataSource.query(
+      `ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS languages jsonb DEFAULT '[]'::jsonb`,
     );
     await dataSource.query(
       `CREATE UNIQUE INDEX IF NOT EXISTS "IDX_student_profiles_external_user_id" ON student_profiles (external_user_id)`,
@@ -25,6 +53,148 @@ export async function initializeDatabase(dataSource: DataSource) {
     );
   } catch (err) {
     console.error('[InitDB] Error ensuring external_user_id column:', err);
+  }
+
+  try {
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS about text`,
+    );
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS company_size varchar`,
+    );
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS founded_at date`,
+    );
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS website varchar`,
+    );
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS phone varchar`,
+    );
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS applicant_digest_enabled boolean NOT NULL DEFAULT true`,
+    );
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS billing_alerts_enabled boolean NOT NULL DEFAULT true`,
+    );
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS marketing_updates_enabled boolean NOT NULL DEFAULT false`,
+    );
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS profile_visibility_enabled boolean NOT NULL DEFAULT true`,
+    );
+    console.log('[InitDB] Ensured extended employer profile columns exist');
+  } catch (err) {
+    console.error('[InitDB] Error ensuring employer profile columns:', err);
+  }
+
+  try {
+    await dataSource.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id uuid
+      )
+    `);
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS type varchar(255)`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS channel varchar(50) DEFAULT 'IN_APP'`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS status varchar(50) DEFAULT 'PENDING'`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS title varchar(255)`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message text`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS content text`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS metadata jsonb`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reference_id uuid`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS recipient_email varchar(255)`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read_at timestamp`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS sent_at timestamp`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS error_message text`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS created_at timestamp DEFAULT CURRENT_TIMESTAMP`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT CURRENT_TIMESTAMP`,
+    );
+    await dataSource.query(
+      `UPDATE notifications SET channel = COALESCE(channel, 'IN_APP'), status = COALESCE(status, 'PENDING')`,
+    );
+    await dataSource.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_NOTIFICATIONS_USER_CREATED" ON notifications (user_id, created_at)`,
+    );
+    await dataSource.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_NOTIFICATIONS_USER_STATUS" ON notifications (user_id, status)`,
+    );
+    await dataSource
+      .query(
+        `ALTER TABLE notifications
+         ADD CONSTRAINT "FK_notifications_user"
+         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
+      )
+      .catch(() => undefined);
+    console.log('[InitDB] Ensured notifications table columns exist');
+  } catch (err) {
+    console.error('[InitDB] Error ensuring notification columns:', err);
+  }
+
+  try {
+    await dataSource.query(
+      `ALTER TABLE m_job_categories ADD COLUMN IF NOT EXISTS employer_id uuid`,
+    );
+    await dataSource.query(
+      `ALTER TABLE m_job_categories DROP CONSTRAINT IF EXISTS "UQ_m_job_categories_name"`,
+    );
+    await dataSource.query(`
+      DO $$
+      DECLARE constraint_name text;
+      BEGIN
+        SELECT tc.constraint_name INTO constraint_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON tc.constraint_name = kcu.constraint_name
+          AND tc.table_name = kcu.table_name
+        WHERE tc.table_name = 'm_job_categories'
+          AND tc.constraint_type = 'UNIQUE'
+          AND kcu.column_name = 'name'
+        LIMIT 1;
+
+        IF constraint_name IS NOT NULL THEN
+          EXECUTE format('ALTER TABLE m_job_categories DROP CONSTRAINT %I', constraint_name);
+        END IF;
+      END $$;
+    `);
+    await dataSource.query(`DROP INDEX IF EXISTS "IDX_m_job_categories_name"`);
+    await dataSource
+      .query(
+        `ALTER TABLE m_job_categories
+       ADD CONSTRAINT "FK_m_job_categories_employer"
+       FOREIGN KEY (employer_id) REFERENCES employer_profiles(id) ON DELETE CASCADE`,
+      )
+      .catch(() => undefined);
+    console.log('[InitDB] Ensured employer-owned job categories are supported');
+  } catch (err) {
+    console.error('[InitDB] Error ensuring employer category columns:', err);
   }
 
   // try {
@@ -63,7 +233,7 @@ export async function initializeDatabase(dataSource: DataSource) {
 
   try {
     // Check if the constraint exists before trying to recreate
-    const result = await dataSource.query(
+    const result = await dataSource.query<{ count: number }[]>(
       `SELECT COUNT(*) FROM information_schema.table_constraints 
        WHERE table_name = 'resumes' AND constraint_name = 'FK_student_profile'`,
     );
@@ -80,5 +250,116 @@ export async function initializeDatabase(dataSource: DataSource) {
   } catch (err) {
     console.error('[InitDB] Error creating FK constraint:', err);
     // Continue anyway - the constraint might already exist or be unnecessary
+  }
+
+  try {
+    await dataSource.query(
+      `CREATE TABLE IF NOT EXISTS reports (id uuid PRIMARY KEY DEFAULT gen_random_uuid())`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS user_id uuid`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS job_id uuid`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS type varchar DEFAULT 'OTHER'`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS description text`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS reason text`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS status varchar DEFAULT 'OPEN'`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS admin_notes text`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS resolved_by_admin_id uuid`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS resolved_at timestamp`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS metadata jsonb`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS created_at timestamp DEFAULT CURRENT_TIMESTAMP`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT CURRENT_TIMESTAMP`,
+    );
+
+    await dataSource.query(`
+      UPDATE reports
+      SET description = COALESCE(description, reason, 'Legacy report'),
+          reason = COALESCE(reason, description, 'Legacy report'),
+          type = COALESCE(type, 'OTHER'),
+          status = COALESCE(status, 'OPEN')
+    `);
+
+    await dataSource.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'reports' AND column_name = 'reporter_id'
+        ) THEN
+          UPDATE reports r
+          SET user_id = sp.user_id
+          FROM student_profiles sp
+          WHERE r.user_id IS NULL AND r.reporter_id = sp.id;
+
+          ALTER TABLE reports ALTER COLUMN reporter_id DROP NOT NULL;
+        END IF;
+
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'reports' AND column_name = 'report_type_id'
+        ) THEN
+          ALTER TABLE reports ALTER COLUMN report_type_id DROP NOT NULL;
+        END IF;
+      END $$;
+    `);
+
+    await dataSource.query(
+      `ALTER TABLE reports ALTER COLUMN description SET NOT NULL`,
+    );
+    await dataSource.query(
+      `ALTER TABLE reports ALTER COLUMN type SET NOT NULL`,
+    );
+    await dataSource.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_REPORTS_USER_CREATED" ON reports (user_id, created_at)`,
+    );
+    await dataSource.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_REPORTS_STATUS_CREATED" ON reports (status, created_at)`,
+    );
+    console.log('[InitDB] Ensured reports table supports current schema');
+  } catch (err) {
+    console.error('[InitDB] Error ensuring reports table columns:', err);
+  }
+
+  // Fix reports foreign key constraint:
+  // when a job is deleted, keep reports and set job_id to NULL
+  try {
+    await dataSource.query(`
+      ALTER TABLE reports
+      DROP CONSTRAINT IF EXISTS "FK_494740ea1dba7c7c018bc6b2e2a"
+    `);
+
+    await dataSource.query(`
+      ALTER TABLE reports
+      ADD CONSTRAINT "FK_494740ea1dba7c7c018bc6b2e2a"
+      FOREIGN KEY (job_id)
+      REFERENCES jobs(id)
+      ON DELETE SET NULL
+    `);
+
+    console.log('[InitDB] Updated reports.job_id FK to SET NULL');
+  } catch (err) {
+    console.error('[InitDB] Error updating reports FK:', err);
   }
 }

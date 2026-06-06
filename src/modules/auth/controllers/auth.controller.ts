@@ -16,6 +16,8 @@ import { LoginDto } from '../dto/login.dto';
 import { SignupUseCase } from '../use-case/signup.usecase';
 import { LoginUseCase } from '../use-case/login.usecase';
 import { RefreshTokenUseCase } from '../use-case/refresh-token.usecase';
+import { ForgotPasswordUseCase } from '../use-case/forgot-password.usecase';
+import { ResetPasswordUseCase } from '../use-case/reset-password.usecase';
 import { GoogleAuthDto } from '../dto/google.dto';
 import { GoogleUseCase } from '../use-case/google.usecase';
 import type { AuthenticatedRequest } from '../../../common/types/auth-request.type';
@@ -24,6 +26,8 @@ import { GetMeUseCase } from '../use-case/getMe_usecase';
 import { VerifyEmailUseCase } from '../use-case/verify-email.usecase';
 import { ResendVerificationUseCase } from '../use-case/resend-verification.usecase';
 import { ResendVerificationDto } from '../dto/resend-verification.dto';
+import { ChangePasswordUseCase } from '../use-case/change-password.usecase';
+import { ChangePasswordDto } from '../dto/change-password.dto';
 
 type AuthUserResponse = {
   id: string;
@@ -56,17 +60,20 @@ export class AuthController {
     private readonly signupUseCase: SignupUseCase,
     private readonly loginUseCase: LoginUseCase,
     private readonly refreshTokenUseCase: RefreshTokenUseCase,
+    private readonly forgotPasswordUseCase: ForgotPasswordUseCase,
+    private readonly resetPasswordUseCase: ResetPasswordUseCase,
     private readonly googleUseCase: GoogleUseCase,
     private readonly getMeUseCase: GetMeUseCase,
     private readonly verifyEmailUseCase: VerifyEmailUseCase,
     private readonly resendVerificationUseCase: ResendVerificationUseCase,
+    private readonly changePasswordUseCase: ChangePasswordUseCase,
   ) {}
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
   getMe(@Req() req: AuthenticatedRequest) {
-    // return this.getMeUseCase.execute(req.user.id);
-    return { userId: req.user.id };
+    return this.getMeUseCase.execute(req.user.id);
+    // return { userId: req.user.id };
   }
 
   @Post('signup')
@@ -138,12 +145,53 @@ export class AuthController {
     return this.refreshTokenUseCase.execute(refreshToken, res);
   }
 
+  @Post('forgot-password')
+  async forgotPassword(@Body() body: { email: string }) {
+    const resetUrl = await this.forgotPasswordUseCase.execute(body.email);
+    const response: { message: string; resetUrl?: string } = {
+      message: 'If an account exists, a reset email has been sent',
+    };
+
+    if (resetUrl) {
+      response.resetUrl = resetUrl;
+    }
+
+    return response;
+  }
+
+  @Post('reset-password')
+  async resetPassword(
+    @Body() body: { email: string; token: string; newPassword: string },
+  ) {
+    await this.resetPasswordUseCase.execute(
+      body.email,
+      body.token,
+      body.newPassword,
+    );
+    return { message: 'Password reset successful' };
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  changePassword(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.changePasswordUseCase.execute(
+      req.user.id,
+      dto.oldPassword,
+      dto.newPassword,
+    );
+  }
+
   @Post('logout')
   logout(@Res({ passthrough: true }) res: Response) {
+    const isProd = process.env.NODE_ENV === 'production';
+
     res.clearCookie('refresh_token', {
       httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      sameSite: isProd ? 'none' : 'lax',
+      secure: isProd,
     });
 
     return { message: 'Logged out successfully' };
@@ -155,5 +203,14 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     return this.googleUseCase.execute(dto.access_token, dto.role, res);
+  }
+
+  // Debug endpoint to verify cookies and headers received by the server
+  @Get('debug-cookies')
+  debugCookies(@Req() req: Request) {
+    return {
+      cookies: (req.cookies as Record<string, any> | undefined) ?? {},
+      headers: req.headers,
+    };
   }
 }
