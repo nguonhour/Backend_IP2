@@ -15,16 +15,43 @@ import { Payment } from '../payments/payment.entity';
 import { Report } from '../reports/report.entity';
 import { AuditLog } from '../audit-logs/audit-log.entity';
 import { Notification } from '../notifications/notification.entity';
+import { Skill } from '../../entities/master/skill.entity';
+import { Industry } from '../../entities/master/industry.entity';
+import { Language } from '../../entities/master/language.entity';
+import { University } from '../../entities/master/university.entity';
+import { Major } from '../../entities/master/major.entity';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { NotificationModule } from '../notifications/notification.module';
+import { MasterDataController } from './master-data.controller';
+import { MasterDataService } from './master-data.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Job, Application, Payment, Report, AuditLog, Notification]),
+    TypeOrmModule.forFeature([
+      User,
+      Job,
+      Application,
+      Payment,
+      Report,
+      AuditLog,
+      Notification,
+      Skill,
+      Industry,
+      Language,
+      University,
+      Major,
+    ]),
     AuditLogsModule,
     NotificationModule,
   ],
-  controllers: [AdminController, DashboardController, AnalyticsController],
-  providers: [AdminService, DashboardService, AnalyticsService, UserManagementService, JobModerationService],
+  controllers: [AdminController, DashboardController, AnalyticsController, MasterDataController],
+  providers: [
+    AdminService,
+    DashboardService,
+    AnalyticsService,
+    UserManagementService,
+    JobModerationService,
+    MasterDataService,
+  ],
 })
 export class AdminModule {}
