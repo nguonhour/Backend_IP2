@@ -1,6 +1,7 @@
 import { Controller, Post, Body, Get, Param, Patch, Delete, Req, UseGuards } from '@nestjs/common';
 import { NotificationService } from './notifications.service';
 import { CreateNotificationDto } from './dto/CreateNotification.dto';
+import { CreateReplyDto } from './dto/create-reply.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/types/auth-request.type';
 
@@ -12,6 +13,18 @@ export class NotificationController {
   @UseGuards(JwtAuthGuard)
   async getMine(@Req() req: AuthenticatedRequest) {
     return await this.service.findAllByUserId(req.user.id);
+  }
+
+  @Get(':id/replies')
+  @UseGuards(JwtAuthGuard)
+  async getReplies(@Param('id') id: string) {
+    return await this.service.findReplies(id);
+  }
+
+  @Post(':id/reply')
+  @UseGuards(JwtAuthGuard)
+  async reply(@Param('id') id: string, @Body() dto: CreateReplyDto, @Req() req: AuthenticatedRequest) {
+    return await this.service.reply(id, req.user.id, dto);
   }
 
   @Get(':userId')

@@ -5,6 +5,14 @@ import { Notification } from './notification.entity';
 import { NotificationsGateway } from './notifications.gateway';
 import { NotificationStatus } from './notification-status.enum';
 import { CreateNotificationDto } from './dto/CreateNotification.dto';
+import { CreateReplyDto } from './dto/create-reply.dto';
+
+export interface ReplyRecord {
+  id: string;
+  senderId: string;
+  message: string;
+  createdAt: string;
+}
 
 @Injectable()
 export class NotificationService {
@@ -16,7 +24,7 @@ export class NotificationService {
 
   async findAllByUserId(userId: string): Promise<Notification[]> {
     return await this.repo.find({
-      where: { user: { id: userId } },
+      where: { userId },
       order: { createdAt: 'DESC' },
     });
   }
@@ -27,6 +35,7 @@ export class NotificationService {
       title: data.title ?? data.message,
       message: data.message,
       referenceId: data.reference_id,
+      metadata: { ...data.metadata, replies: [] },
       user: { id: data.user_id } as any,
       status: NotificationStatus.PENDING,
     });
@@ -35,12 +44,26 @@ export class NotificationService {
 
     this.gateway.sendNotification(data.user_id, 'notification:new', saved);
 
+    // Also create a copy for the sender if specified
+    if (data.metadata?.senderId && data.metadata.senderId !== data.user_id) {
+      const senderCopy = this.repo.create({
+        type: data.type,
+        title: `Sent: ${data.title ?? data.message}`,
+        message: data.message,
+        referenceId: saved.id,
+        metadata: { ...data.metadata, isSenderCopy: true, replies: [] },
+        user: { id: data.metadata.senderId } as any,
+        status: NotificationStatus.READ,
+      });
+      await this.repo.save(senderCopy);
+    }
+
     return saved;
   }
 
   async markAllRead(userId: string): Promise<{ affected: number }> {
     const result = await this.repo.update(
-      { user: { id: userId }, status: In([NotificationStatus.PENDING, NotificationStatus.SENT]) },
+      { userId, status: In([NotificationStatus.PENDING, NotificationStatus.SENT]) },
       { status: NotificationStatus.READ, readAt: new Date() },
     );
     return { affected: result.affected ?? 0 };
@@ -65,6 +88,17 @@ export class NotificationService {
     return await this.repo.save(notification);
   }
 
+  async findReplies(notificationId: string): Promise<ReplyRecord[]> {
+    console.log('[findReplies] looking up:', notificationId);
+    const notification = await this.repo.findOne({ where: { id: notificationId } });
+    if (!notification) {
+      console.log('[findReplies] not found:', notificationId);
+      return [];
+    }
+    console.log('[findReplies] found, metadata:', JSON.stringify(notification.metadata));
+    return notification.metadata?.replies ?? [];
+  }
+
   async remove(id: string, userId: string): Promise<void> {
     const notification = await this.repo.findOne({
       where: { id },
@@ -80,5 +114,36 @@ export class NotificationService {
     }
 
     await this.repo.remove(notification);
+  }
+
+  async reply(id: string, currentUserId: string, dto: CreateReplyDto): Promise<ReplyRecord> {
+    const original = await this.repo.findOne({
+      where: { id },
+      relations: ['user'],
+    });
+
+    if (!original) {
+      throw new NotFoundException('Original notification not found');
+    }
+
+    const senderId = original.metadata?.senderId as string | undefined;
+    const targetUserId = currentUserId === senderId ? original.user.id : (senderId || original.user.id);
+
+    const reply: ReplyRecord = {
+      id: crypto.randomUUID(),
+      senderId: currentUserId,
+      message: dto.message,
+      createdAt: new Date().toISOString(),
+    };
+
+    const replies: ReplyRecord[] = [...(original.metadata?.replies ?? []), reply];
+    await this.repo.update(original.id, { metadata: { ...original.metadata, replies } });
+
+    this.gateway.sendNotification(targetUserId, 'reply:new', {
+      notificationId: original.referenceId || original.id,
+      reply,
+    });
+
+    return reply;
   }
 }
