@@ -61,6 +61,16 @@ export class DashboardController {
   }
 
   /**
+   * Get recent reports
+   */
+  @Get('recent-reports')
+  async getRecentReports(@Query('limit') limit?: string) {
+    return this.dashboardService.getRecentReports(
+      parseInt(limit || '5', 10),
+    );
+  }
+
+  /**
    * Get recent audit logs
    */
   @Get('audit-logs')
@@ -110,6 +120,9 @@ export class DashboardController {
       reportStats,
       activityTrend,
       systemHealth,
+      recentReports,
+      auditLogs,
+      topReportedJobs,
     ] = await Promise.all([
       this.dashboardService.getOverview(),
       this.dashboardService.getUserStats(30),
@@ -119,6 +132,9 @@ export class DashboardController {
       this.dashboardService.getReportStats(),
       this.dashboardService.getActivityTrend(30),
       this.dashboardService.getSystemHealth(),
+      this.dashboardService.getRecentReports(5),
+      this.dashboardService.getRecentAuditLogs(5),
+      this.dashboardService.getTopReportedJobs(5),
     ]);
 
     return {
@@ -130,6 +146,9 @@ export class DashboardController {
       reportStats,
       activityTrend,
       systemHealth,
+      recentReports,
+      auditLogs,
+      topReportedJobs,
     };
   }
 }

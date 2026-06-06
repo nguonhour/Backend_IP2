@@ -24,6 +24,16 @@ export class AdminService {
     private reportRepository: Repository<Report>,
   ) {}
 
+  private countUsersByRole(roleName: string): Promise<number> {
+    return this.userRepository
+      .createQueryBuilder('u')
+      .leftJoin('u.role', 'role')
+      .where('UPPER(role.name) = :roleName', {
+        roleName: roleName.toUpperCase(),
+      })
+      .getCount();
+  }
+
   async getDashboard() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -36,16 +46,12 @@ export class AdminService {
       totalReports,
       pendingReports,
     ] = await Promise.all([
-      this.userRepository.count({
-        where: { role: { name: 'STUDENT' } },
-      }),
-      this.userRepository.count({
-        where: { role: { name: 'EMPLOYER' } },
-      }),
+      this.countUsersByRole('STUDENT'),
+      this.countUsersByRole('EMPLOYER'),
       this.jobRepository.count(),
       this.applicationRepository
         .createQueryBuilder('app')
-        .where('app.appliedAt >= :today', { today })
+        .where('app."appliedAt" >= :today', { today })
         .getCount(),
       this.reportRepository.count(),
       this.reportRepository.count({

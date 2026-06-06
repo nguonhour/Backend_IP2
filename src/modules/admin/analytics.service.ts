@@ -1,11 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThanOrEqual } from 'typeorm';
+import { Repository, Between, ObjectLiteral } from 'typeorm';
 import { Job } from '../jobs/job.entity';
+import { JobSkill } from '../jobs/job-skill.entity';
 import { Application } from '../applications/application.entity';
+import { ApplicationStatusHistory } from '../applications/application-status-history.entity';
 import { Payment } from '../payments/payment.entity';
 import { PaymentStatus } from '../payments/enum/payment-status.enum';
 import { User } from '../users/user.entity';
+import { UserStatus } from '../users/user-status.enum';
+import { StudentSkill } from '../student-profiles/student-skill.entity';
+import { SearchHistory } from '../student-profiles/search-history.entity';
 
 @Injectable()
 export class AnalyticsService {
@@ -18,7 +23,310 @@ export class AnalyticsService {
     private paymentRepository: Repository<Payment>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(JobSkill)
+    private jobSkillRepository: Repository<JobSkill>,
+    @InjectRepository(StudentSkill)
+    private studentSkillRepository: Repository<StudentSkill>,
+    @InjectRepository(SearchHistory)
+    private searchHistoryRepository: Repository<SearchHistory>,
+    @InjectRepository(ApplicationStatusHistory)
+    private applicationStatusHistoryRepository: Repository<ApplicationStatusHistory>,
   ) {}
+
+  async getAdvancedOverview(days = 30) {
+    const startDate = this.daysAgo(days);
+    const previousStartDate = this.daysAgo(days * 2);
+    const nextWeek = new Date();
+    nextWeek.setDate(nextWeek.getDate() + 7);
+
+    const [
+      activeStudents,
+      activeEmployers,
+      verifiedEmployers,
+      liveJobPostings,
+      expiringJobs,
+      totalApplications,
+      acceptedApplications,
+      currentStudents,
+      previousStudents,
+      currentEmployers,
+      previousEmployers,
+      currentApplications,
+      previousApplications,
+    ] = await Promise.all([
+      this.countUsersByRole('STUDENT', { status: UserStatus.ACTIVE }),
+      this.countUsersByRole('EMPLOYER', { status: UserStatus.ACTIVE }),
+      this.countUsersByRole('EMPLOYER', { isVerified: true }),
+      this.liveJobQuery().getCount(),
+      this.liveJobQuery()
+        .andWhere('job.deadline IS NOT NULL')
+        .andWhere('job.deadline <= :nextWeek', { nextWeek })
+        .getCount(),
+      this.applicationRepository.count(),
+      this.applicationRepository
+        .createQueryBuilder('app')
+        .leftJoin('app.currentStatus', 'status')
+        .where('LOWER(status.name) IN (:...statuses)', {
+          statuses: ['accepted', 'hired'],
+        })
+        .getCount(),
+      this.countUsersByRole('STUDENT', { createdFrom: startDate }),
+      this.countUsersByRole('STUDENT', {
+        createdFrom: previousStartDate,
+        createdTo: startDate,
+      }),
+      this.countUsersByRole('EMPLOYER', { createdFrom: startDate }),
+      this.countUsersByRole('EMPLOYER', {
+        createdFrom: previousStartDate,
+        createdTo: startDate,
+      }),
+      this.applicationRepository
+        .createQueryBuilder('app')
+        .where('app."appliedAt" >= :startDate', { startDate })
+        .getCount(),
+      this.applicationRepository
+        .createQueryBuilder('app')
+        .where('app."appliedAt" >= :previousStartDate', { previousStartDate })
+        .andWhere('app."appliedAt" < :startDate', { startDate })
+        .getCount(),
+    ]);
+
+    return {
+      activeStudents,
+      activeEmployers,
+      verifiedEmployers,
+      liveJobPostings,
+      expiringJobs,
+      conversionRate:
+        totalApplications > 0
+          ? Math.round((acceptedApplications / totalApplications) * 100)
+          : 0,
+      studentChangePercent: this.calculateChange(
+        currentStudents,
+        previousStudents,
+      ),
+      employerChangePercent: this.calculateChange(
+        currentEmployers,
+        previousEmployers,
+      ),
+      applicationChangePercent: this.calculateChange(
+        currentApplications,
+        previousApplications,
+      ),
+    };
+  }
+
+  async getEmployerEngagement(limit = 5) {
+    const rows = await this.applicationRepository
+      .createQueryBuilder('app')
+      .innerJoin('app.job', 'job')
+      .innerJoin('job.employer', 'employer')
+      .leftJoin('app.currentStatus', 'status')
+      .select('employer.id', 'id')
+      .addSelect('employer.companyName', 'name')
+      .addSelect('COUNT(DISTINCT app.id)', 'applicationCount')
+      .addSelect('COUNT(DISTINCT job.id)', 'jobCount')
+      .addSelect(
+        `SUM(CASE WHEN LOWER(status.name) IN ('accepted', 'hired') THEN 1 ELSE 0 END)`,
+        'acceptedCount',
+      )
+      .groupBy('employer.id')
+      .addGroupBy('employer.companyName')
+      .orderBy('COUNT(DISTINCT app.id)', 'DESC')
+      .limit(limit)
+      .getRawMany<{
+        id: string;
+        name: string;
+        applicationCount: string;
+        jobCount: string;
+        acceptedCount: string;
+      }>();
+
+    const hireRows = await this.applicationStatusHistoryRepository
+      .createQueryBuilder('history')
+      .innerJoin('history.application', 'app')
+      .innerJoin('app.job', 'job')
+      .innerJoin('job.employer', 'employer')
+      .innerJoin('history.status', 'status')
+      .select('employer.id', 'id')
+      .addSelect(
+        'AVG(EXTRACT(EPOCH FROM (history."changedAt" - app."appliedAt")) / 86400)',
+        'avgDays',
+      )
+      .where('LOWER(status.name) IN (:...statuses)', {
+        statuses: ['accepted', 'hired'],
+      })
+      .groupBy('employer.id')
+      .getRawMany<{ id: string; avgDays: string }>();
+
+    const avgHireDaysByEmployer = new Map(
+      hireRows.map((row) => [row.id, Number.parseFloat(row.avgDays || '0')]),
+    );
+
+    return rows.map((row) => {
+      const applications = Number.parseInt(row.applicationCount || '0', 10);
+      const accepted = Number.parseInt(row.acceptedCount || '0', 10);
+      return {
+        id: row.id,
+        name: row.name || 'Unknown Employer',
+        initial: (row.name || 'U').trim().charAt(0).toUpperCase(),
+        averageTimeToHireDays: Math.round(
+          avgHireDaysByEmployer.get(row.id) || 0,
+        ),
+        candidateQuality:
+          applications > 0 ? Math.round((accepted / applications) * 100) : 0,
+        activity: applications + Number.parseInt(row.jobCount || '0', 10),
+      };
+    });
+  }
+
+  async getSkillGapAnalysis(limit = 5) {
+    const [demandRows, supplyRows] = await Promise.all([
+      this.jobSkillRepository
+        .createQueryBuilder('jobSkill')
+        .innerJoin('jobSkill.skill', 'skill')
+        .select('skill.id', 'skillId')
+        .addSelect('skill.name', 'label')
+        .addSelect('COUNT(DISTINCT jobSkill.jobId)', 'demand')
+        .groupBy('skill.id')
+        .addGroupBy('skill.name')
+        .getRawMany<{ skillId: string; label: string; demand: string }>(),
+      this.studentSkillRepository
+        .createQueryBuilder('studentSkill')
+        .innerJoin('studentSkill.skill', 'skill')
+        .select('skill.id', 'skillId')
+        .addSelect('skill.name', 'label')
+        .addSelect('COUNT(DISTINCT studentSkill.studentId)', 'supply')
+        .groupBy('skill.id')
+        .addGroupBy('skill.name')
+        .getRawMany<{ skillId: string; label: string; supply: string }>(),
+    ]);
+
+    const supplyBySkill = new Map(
+      supplyRows.map((row) => [
+        row.skillId,
+        {
+          label: row.label,
+          supply: Number.parseInt(row.supply || '0', 10),
+        },
+      ]),
+    );
+
+    const combined = demandRows.map((row) => {
+      const demand = Number.parseInt(row.demand || '0', 10);
+      const supply = supplyBySkill.get(row.skillId)?.supply ?? 0;
+      const gapPercent =
+        demand > 0 ? Math.round(((demand - supply) / demand) * 100) : 0;
+
+      return {
+        label: row.label,
+        demand,
+        supply,
+        gapPercent,
+        status:
+          gapPercent > 0
+            ? `${gapPercent}% Supply Gap`
+            : `${Math.abs(gapPercent)}% Surplus`,
+      };
+    });
+
+    return combined
+      .sort((a, b) => Math.abs(b.gapPercent) - Math.abs(a.gapPercent))
+      .slice(0, limit);
+  }
+
+  async getUtilizationHeatmap(days = 7) {
+    const startDate = this.daysAgo(days);
+    const [applications, users, jobs, searches] = await Promise.all([
+      this.countByHour(
+        this.applicationRepository,
+        'app',
+        'app."appliedAt"',
+        startDate,
+      ),
+      this.countByHour(this.userRepository, 'u', 'u.created_at', startDate),
+      this.countByHour(this.jobRepository, 'job', 'job.created_at', startDate),
+      this.countByHour(
+        this.searchHistoryRepository,
+        'search',
+        'search."searchedAt"',
+        startDate,
+      ),
+    ]);
+
+    const totals = Array.from({ length: 24 }, (_, hour) => ({
+      hour,
+      count: 0,
+    }));
+
+    for (const source of [applications, users, jobs, searches]) {
+      for (const row of source) {
+        const hour = Number.parseInt(row.hour, 10);
+        if (Number.isInteger(hour) && hour >= 0 && hour < 24) {
+          totals[hour].count += Number.parseInt(row.count || '0', 10);
+        }
+      }
+    }
+
+    return totals;
+  }
+
+  async getPopularSearchTokens(limit = 10) {
+    const rows = await this.searchHistoryRepository
+      .createQueryBuilder('search')
+      .select('LOWER(TRIM(search."searchQuery"))', 'token')
+      .addSelect('COUNT(*)', 'count')
+      .where("COALESCE(TRIM(search.\"searchQuery\"), '') <> ''")
+      .groupBy('LOWER(TRIM(search."searchQuery"))')
+      .orderBy('COUNT(*)', 'DESC')
+      .limit(limit)
+      .getRawMany<{ token: string; count: string }>();
+
+    return rows.map((row) => ({
+      token: row.token,
+      count: Number.parseInt(row.count || '0', 10),
+    }));
+  }
+
+  async getSurgeForecast(days = 14, limit = 2) {
+    const currentStart = this.daysAgo(days);
+    const previousStart = this.daysAgo(days * 2);
+
+    const rows = await this.applicationRepository
+      .createQueryBuilder('app')
+      .innerJoin('app.job', 'job')
+      .leftJoin('job.category', 'category')
+      .select("COALESCE(category.name, 'Uncategorized')", 'label')
+      .addSelect(
+        `SUM(CASE WHEN app."appliedAt" >= :currentStart THEN 1 ELSE 0 END)`,
+        'currentCount',
+      )
+      .addSelect(
+        `SUM(CASE WHEN app."appliedAt" >= :previousStart AND app."appliedAt" < :currentStart THEN 1 ELSE 0 END)`,
+        'previousCount',
+      )
+      .where('app."appliedAt" >= :previousStart', { previousStart })
+      .setParameter('currentStart', currentStart)
+      .groupBy("COALESCE(category.name, 'Uncategorized')")
+      .orderBy('"currentCount"', 'DESC')
+      .limit(limit)
+      .getRawMany<{
+        label: string;
+        currentCount: string;
+        previousCount: string;
+      }>();
+
+    return rows.map((row) => {
+      const current = Number.parseInt(row.currentCount || '0', 10);
+      const previous = Number.parseInt(row.previousCount || '0', 10);
+      return {
+        label: row.label,
+        current,
+        previous,
+        changePercent: this.calculateChange(current, previous),
+      };
+    });
+  }
 
   /**
    * Get job creation trend over time
@@ -29,10 +337,10 @@ export class AnalyticsService {
 
     const data = await this.jobRepository
       .createQueryBuilder('job')
-      .select('DATE(job.createdAt)', 'date')
+      .select('DATE(job.created_at)', 'date')
       .addSelect('COUNT(*)', 'count')
-      .where('job.createdAt >= :startDate', { startDate })
-      .groupBy('DATE(job.createdAt)')
+      .where('job.created_at >= :startDate', { startDate })
+      .groupBy('DATE(job.created_at)')
       .orderBy('date', 'ASC')
       .getRawMany();
 
@@ -48,10 +356,10 @@ export class AnalyticsService {
 
     const data = await this.applicationRepository
       .createQueryBuilder('app')
-      .select('DATE(app.appliedAt)', 'date')
+      .select('DATE(app."appliedAt")', 'date')
       .addSelect('COUNT(*)', 'count')
-      .where('app.appliedAt >= :startDate', { startDate })
-      .groupBy('DATE(app.appliedAt)')
+      .where('app."appliedAt" >= :startDate', { startDate })
+      .groupBy('DATE(app."appliedAt")')
       .orderBy('date', 'ASC')
       .getRawMany();
 
@@ -67,11 +375,11 @@ export class AnalyticsService {
 
     const data = await this.paymentRepository
       .createQueryBuilder('payment')
-      .select('DATE(payment.createdAt)', 'date')
+      .select('DATE(payment.created_at)', 'date')
       .addSelect('SUM(payment.amount)', 'revenue')
-      .where('payment.createdAt >= :startDate', { startDate })
+      .where('payment.created_at >= :startDate', { startDate })
       .andWhere('payment.status = :status', { status: PaymentStatus.PAID })
-      .groupBy('DATE(payment.createdAt)')
+      .groupBy('DATE(payment.created_at)')
       .orderBy('date', 'ASC')
       .getRawMany();
 
@@ -89,11 +397,11 @@ export class AnalyticsService {
     startDate.setDate(startDate.getDate() - days);
 
     const data = await this.userRepository
-      .createQueryBuilder('user')
-      .select('DATE(user.createdAt)', 'date')
+      .createQueryBuilder('u')
+      .select('DATE(u.created_at)', 'date')
       .addSelect('COUNT(*)', 'count')
-      .where('user.createdAt >= :startDate', { startDate })
-      .groupBy('DATE(user.createdAt)')
+      .where('u.created_at >= :startDate', { startDate })
+      .groupBy('DATE(u.created_at)')
       .orderBy('date', 'ASC')
       .getRawMany();
 
@@ -131,14 +439,14 @@ export class AnalyticsService {
       }),
       this.applicationRepository
         .createQueryBuilder('app')
-        .where('app.appliedAt BETWEEN :start AND :end', {
+        .where('app."appliedAt" BETWEEN :start AND :end', {
           start: period1Start,
           end: period1End,
         })
         .getCount(),
       this.applicationRepository
         .createQueryBuilder('app')
-        .where('app.appliedAt BETWEEN :start AND :end', {
+        .where('app."appliedAt" BETWEEN :start AND :end', {
           start: period2Start,
           end: period2End,
         })
@@ -225,7 +533,7 @@ export class AnalyticsService {
     const result = await this.paymentRepository
       .createQueryBuilder('payment')
       .select('SUM(payment.amount)', 'total')
-      .where('payment.createdAt BETWEEN :startDate AND :endDate', {
+      .where('payment.created_at BETWEEN :startDate AND :endDate', {
         startDate,
         endDate,
       })
@@ -241,6 +549,79 @@ export class AnalyticsService {
   private calculateChange(current: number, previous: number): number {
     if (previous === 0) return current > 0 ? 100 : 0;
     return Math.round(((current - previous) / previous) * 100);
+  }
+
+  private countUsersByRole(
+    roleName: string,
+    filters: {
+      status?: UserStatus;
+      isVerified?: boolean;
+      createdFrom?: Date;
+      createdTo?: Date;
+    } = {},
+  ) {
+    const query = this.userRepository
+      .createQueryBuilder('u')
+      .leftJoin('u.role', 'role')
+      .where('UPPER(role.name) = :roleName', {
+        roleName: roleName.toUpperCase(),
+      });
+
+    if (filters.status) {
+      query.andWhere('u.status = :status', { status: filters.status });
+    }
+
+    if (filters.isVerified !== undefined) {
+      query.andWhere('u.is_verified = :isVerified', {
+        isVerified: filters.isVerified,
+      });
+    }
+
+    if (filters.createdFrom) {
+      query.andWhere('u.created_at >= :createdFrom', {
+        createdFrom: filters.createdFrom,
+      });
+    }
+
+    if (filters.createdTo) {
+      query.andWhere('u.created_at < :createdTo', {
+        createdTo: filters.createdTo,
+      });
+    }
+
+    return query.getCount();
+  }
+
+  private liveJobQuery() {
+    return this.jobRepository
+      .createQueryBuilder('job')
+      .leftJoin('job.status', 'status')
+      .where('LOWER(status.name) IN (:...statuses)', {
+        statuses: ['active', 'open', 'published'],
+      })
+      .andWhere('(job.deadline IS NULL OR job.deadline >= CURRENT_DATE)')
+      .andWhere('job.is_blocked = false');
+  }
+
+  private daysAgo(days: number) {
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    return date;
+  }
+
+  private countByHour<T extends ObjectLiteral>(
+    repository: Repository<T>,
+    alias: string,
+    dateColumn: string,
+    startDate: Date,
+  ) {
+    return repository
+      .createQueryBuilder(alias)
+      .select(`EXTRACT(HOUR FROM ${dateColumn})`, 'hour')
+      .addSelect('COUNT(*)', 'count')
+      .where(`${dateColumn} >= :startDate`, { startDate })
+      .groupBy(`EXTRACT(HOUR FROM ${dateColumn})`)
+      .getRawMany<{ hour: string; count: string }>();
   }
 
   /**
