@@ -147,8 +147,16 @@ export class AuthController {
 
   @Post('forgot-password')
   async forgotPassword(@Body() body: { email: string }) {
-    await this.forgotPasswordUseCase.execute(body.email);
-    return { message: 'If an account exists, a reset email has been sent' };
+    const resetUrl = await this.forgotPasswordUseCase.execute(body.email);
+    const response: { message: string; resetUrl?: string } = {
+      message: 'If an account exists, a reset email has been sent',
+    };
+
+    if (resetUrl) {
+      response.resetUrl = resetUrl;
+    }
+
+    return response;
   }
 
   @Post('reset-password')

@@ -71,9 +71,91 @@ export async function initializeDatabase(dataSource: DataSource) {
     await dataSource.query(
       `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS phone varchar`,
     );
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS applicant_digest_enabled boolean NOT NULL DEFAULT true`,
+    );
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS billing_alerts_enabled boolean NOT NULL DEFAULT true`,
+    );
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS marketing_updates_enabled boolean NOT NULL DEFAULT false`,
+    );
+    await dataSource.query(
+      `ALTER TABLE employer_profiles ADD COLUMN IF NOT EXISTS profile_visibility_enabled boolean NOT NULL DEFAULT true`,
+    );
     console.log('[InitDB] Ensured extended employer profile columns exist');
   } catch (err) {
     console.error('[InitDB] Error ensuring employer profile columns:', err);
+  }
+
+  try {
+    await dataSource.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id uuid
+      )
+    `);
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS type varchar(255)`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS channel varchar(50) DEFAULT 'IN_APP'`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS status varchar(50) DEFAULT 'PENDING'`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS title varchar(255)`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message text`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS content text`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS metadata jsonb`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reference_id uuid`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS recipient_email varchar(255)`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read_at timestamp`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS sent_at timestamp`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS error_message text`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS created_at timestamp DEFAULT CURRENT_TIMESTAMP`,
+    );
+    await dataSource.query(
+      `ALTER TABLE notifications ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT CURRENT_TIMESTAMP`,
+    );
+    await dataSource.query(
+      `UPDATE notifications SET channel = COALESCE(channel, 'IN_APP'), status = COALESCE(status, 'PENDING')`,
+    );
+    await dataSource.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_NOTIFICATIONS_USER_CREATED" ON notifications (user_id, created_at)`,
+    );
+    await dataSource.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_NOTIFICATIONS_USER_STATUS" ON notifications (user_id, status)`,
+    );
+    await dataSource
+      .query(
+        `ALTER TABLE notifications
+         ADD CONSTRAINT "FK_notifications_user"
+         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
+      )
+      .catch(() => undefined);
+    console.log('[InitDB] Ensured notifications table columns exist');
+  } catch (err) {
+    console.error('[InitDB] Error ensuring notification columns:', err);
   }
 
   try {
@@ -246,7 +328,9 @@ export async function initializeDatabase(dataSource: DataSource) {
     await dataSource.query(
       `ALTER TABLE reports ALTER COLUMN description SET NOT NULL`,
     );
-    await dataSource.query(`ALTER TABLE reports ALTER COLUMN type SET NOT NULL`);
+    await dataSource.query(
+      `ALTER TABLE reports ALTER COLUMN type SET NOT NULL`,
+    );
     await dataSource.query(
       `CREATE INDEX IF NOT EXISTS "IDX_REPORTS_USER_CREATED" ON reports (user_id, created_at)`,
     );

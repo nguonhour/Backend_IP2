@@ -10,7 +10,9 @@ import { UserManagementService } from './user-management.service';
 import { JobModerationService } from './job-moderation.service';
 import { User } from '../users/user.entity';
 import { Job } from '../jobs/job.entity';
+import { JobSkill } from '../jobs/job-skill.entity';
 import { Application } from '../applications/application.entity';
+import { ApplicationStatusHistory } from '../applications/application-status-history.entity';
 import { Payment } from '../payments/payment.entity';
 import { Report } from '../reports/report.entity';
 import { AuditLog } from '../audit-logs/audit-log.entity';
@@ -20,6 +22,8 @@ import { Industry } from '../../entities/master/industry.entity';
 import { Language } from '../../entities/master/language.entity';
 import { University } from '../../entities/master/university.entity';
 import { Major } from '../../entities/master/major.entity';
+import { StudentSkill } from '../student-profiles/student-skill.entity';
+import { SearchHistory } from '../student-profiles/search-history.entity';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { NotificationModule } from '../notifications/notification.module';
 import { MasterDataController } from './master-data.controller';
@@ -30,7 +34,9 @@ import { MasterDataService } from './master-data.service';
     TypeOrmModule.forFeature([
       User,
       Job,
+      JobSkill,
       Application,
+      ApplicationStatusHistory,
       Payment,
       Report,
       AuditLog,
@@ -40,6 +46,8 @@ import { MasterDataService } from './master-data.service';
       Language,
       University,
       Major,
+      StudentSkill,
+      SearchHistory,
     ]),
     AuditLogsModule,
     NotificationModule,

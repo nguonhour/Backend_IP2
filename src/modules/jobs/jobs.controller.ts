@@ -25,8 +25,8 @@ import type { AuthenticatedRequest } from '../../common/types/auth-request.type'
 import { Audit } from '../../common/decorators/audit.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import type { Response } from 'express'
-import { Res } from '@nestjs/common'
+import type { Response } from 'express';
+import { Res } from '@nestjs/common';
 
 @Controller('jobs')
 export class JobsController {
@@ -108,15 +108,12 @@ export class JobsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('admin/export')
   @UsePipes(new ValidationPipe({ transform: true }))
-  async exportJobsForAdmin(
-    @Query() query: JobSearchDto,
-    @Res() res: Response,
-  ) {
-    const csv = await this.jobsService.exportJobsCsvForAdmin(query)
+  async exportJobsForAdmin(@Query() query: JobSearchDto, @Res() res: Response) {
+    const csv = await this.jobsService.exportJobsCsvForAdmin(query);
 
-    res.header('Content-Type', 'text/csv; charset=utf-8')
-    res.attachment(`admin-jobs-${new Date().toISOString().slice(0, 10)}.csv`)
-    res.send(csv)
+    res.header('Content-Type', 'text/csv; charset=utf-8');
+    res.attachment(`admin-jobs-${new Date().toISOString().slice(0, 10)}.csv`);
+    res.send(csv);
   }
 
   @Roles('ADMIN')
@@ -179,13 +176,13 @@ export class JobsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Patch(':id/block')
   async blockJob(@Param('id', ParseUUIDPipe) id: string) {
-    return this.jobsService.setJobBlocked(id, true)
+    return this.jobsService.setJobBlocked(id, true);
   }
 
   @Roles('ADMIN')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Patch(':id/unblock')
   async unblockJob(@Param('id', ParseUUIDPipe) id: string) {
-    return this.jobsService.setJobBlocked(id, false)
+    return this.jobsService.setJobBlocked(id, false);
   }
 }

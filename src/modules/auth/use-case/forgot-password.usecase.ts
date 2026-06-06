@@ -10,7 +10,7 @@ export class ForgotPasswordUseCase {
     private readonly emailService: EmailService,
   ) {}
 
-  async execute(email: string) {
+  async execute(email: string): Promise<string | void> {
     if (!email) throw new BadRequestException('Email is required');
 
     const { data: user } = await this.userRepo.findByEmail(email);
@@ -28,6 +28,6 @@ export class ForgotPasswordUseCase {
     await this.userRepo.updateResetToken(user.id, tokenHash, expiresAt);
 
     // Send reset email (EmailService may be a no-op in non-configured environments)
-    await this.emailService.sendResetPasswordEmail(user.email, token);
+    return await this.emailService.sendResetPasswordEmail(user.email, token);
   }
 }

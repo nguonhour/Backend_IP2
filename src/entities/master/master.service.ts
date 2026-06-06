@@ -53,11 +53,24 @@ export class MasterService {
   }
 
   async getApplicationStatuses() {
-    return this.applicationStatusRepository.find({
-      where: { isActive: true },
-      select: ['id', 'name'],
-      order: { name: 'ASC' },
-    });
+    return this.applicationStatusRepository
+      .createQueryBuilder('status')
+      .select(['status.id', 'status.name'])
+      .where('status.isActive = :isActive', { isActive: true })
+      .orderBy(
+        `CASE LOWER(status.name)
+          WHEN 'applied' THEN 1
+          WHEN 'shortlisted' THEN 3
+          WHEN 'interview scheduled' THEN 4
+          WHEN 'interview completed' THEN 5
+          WHEN 'hired' THEN 6
+          WHEN 'rejected' THEN 7
+          ELSE 99
+        END`,
+        'ASC',
+      )
+      .addOrderBy('status.name', 'ASC')
+      .getMany();
   }
 
   async getUniversities() {

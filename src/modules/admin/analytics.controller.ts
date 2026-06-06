@@ -10,6 +10,13 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
+  @Get('overview')
+  async getAdvancedOverview(@Query('days') days?: string) {
+    return this.analyticsService.getAdvancedOverview(
+      parseInt(days || '30', 10),
+    );
+  }
+
   /**
    * Get job creation trend
    */
@@ -66,5 +73,44 @@ export class AnalyticsController {
   @Get('conversion-funnel')
   async getConversionFunnel() {
     return this.analyticsService.getConversionFunnel();
+  }
+
+  @Get('employers/engagement')
+  async getEmployerEngagement(@Query('limit') limit?: string) {
+    return this.analyticsService.getEmployerEngagement(
+      parseInt(limit || '5', 10),
+    );
+  }
+
+  @Get('skills/gaps')
+  async getSkillGapAnalysis(@Query('limit') limit?: string) {
+    return this.analyticsService.getSkillGapAnalysis(
+      parseInt(limit || '5', 10),
+    );
+  }
+
+  @Get('utilization/heatmap')
+  async getUtilizationHeatmap(@Query('days') days?: string) {
+    return this.analyticsService.getUtilizationHeatmap(
+      parseInt(days || '7', 10),
+    );
+  }
+
+  @Get('search-tokens')
+  async getPopularSearchTokens(@Query('limit') limit?: string) {
+    return this.analyticsService.getPopularSearchTokens(
+      parseInt(limit || '10', 10),
+    );
+  }
+
+  @Get('surge-forecast')
+  async getSurgeForecast(
+    @Query('days') days?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.analyticsService.getSurgeForecast(
+      parseInt(days || '14', 10),
+      parseInt(limit || '2', 10),
+    );
   }
 }

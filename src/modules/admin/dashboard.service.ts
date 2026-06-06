@@ -10,7 +10,7 @@ import { Payment } from '../payments/payment.entity';
 import { PaymentStatus } from '../payments/enum/payment-status.enum';
 import { Report } from '../reports/report.entity';
 import { ReportStatus } from '../reports/report-status.enum';
-import { AuditLog, AuditAction } from '../audit-logs/audit-log.entity';
+import { AuditLog } from '../audit-logs/audit-log.entity';
 import { Notification } from '../notifications/notification.entity';
 import { NotificationStatus } from '../notifications/notification-status.enum';
 
@@ -33,29 +33,89 @@ export class DashboardService {
     private notificationRepository: Repository<Notification>,
   ) {}
 
+  private buildUserRoleCountQuery(roleName: string) {
+    return this.userRepository
+      .createQueryBuilder('u')
+      .leftJoin('u.role', 'role')
+      .where('UPPER(role.name) = :roleName', {
+        roleName: roleName.toUpperCase(),
+      });
+  }
+
+  private countUsersByRole(
+    roleName: string,
+    filters: {
+      status?: UserStatus;
+      isVerified?: boolean;
+      createdFrom?: Date;
+      createdTo?: Date;
+    } = {},
+  ): Promise<number> {
+    const query = this.buildUserRoleCountQuery(roleName);
+
+    if (filters.status) {
+      query.andWhere('u.status = :status', { status: filters.status });
+    }
+
+    if (filters.isVerified !== undefined) {
+      query.andWhere('u.is_verified = :isVerified', {
+        isVerified: filters.isVerified,
+      });
+    }
+
+    if (filters.createdFrom) {
+      query.andWhere('u.created_at >= :createdFrom', {
+        createdFrom: filters.createdFrom,
+      });
+    }
+
+    if (filters.createdTo) {
+      query.andWhere('u.created_at <= :createdTo', {
+        createdTo: filters.createdTo,
+      });
+    }
+
+    return query.getCount();
+  }
+
   /**
    * Get overview dashboard statistics
    */
   async getOverview() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
+    const weekStart = new Date(today);
+    weekStart.setDate(weekStart.getDate() - 7);
 
     const [
       totalStudents,
       totalEmployers,
       totalJobs,
       totalApplications,
+      newApplicantsToday,
+      newStudentsThisWeek,
+      newEmployersThisWeek,
       activeJobs,
       pendingReports,
       openReports,
       totalRevenue,
     ] = await Promise.all([
-      this.userRepository.count({ where: { role: { name: 'STUDENT' } } }),
-      this.userRepository.count({ where: { role: { name: 'EMPLOYER' } } }),
+      this.countUsersByRole('STUDENT'),
+      this.countUsersByRole('EMPLOYER'),
       this.jobRepository.count(),
       this.applicationRepository.count(),
+      this.applicationRepository
+        .createQueryBuilder('app')
+        .where('app."appliedAt" >= :today', { today })
+        .getCount(),
+      this.countUsersByRole('STUDENT', {
+        createdFrom: weekStart,
+        createdTo: new Date(),
+      }),
+      this.countUsersByRole('EMPLOYER', {
+        createdFrom: weekStart,
+        createdTo: new Date(),
+      }),
       this.jobRepository.count({ where: { status: { name: 'active' } } }),
       this.reportRepository.count({ where: { status: ReportStatus.OPEN } }),
       this.reportRepository.count({
@@ -71,6 +131,9 @@ export class DashboardService {
       totalJobs,
       activeJobs,
       totalApplications,
+      newApplicantsToday,
+      newStudentsThisWeek,
+      newEmployersThisWeek,
       pendingReports,
       openReports,
       totalRevenue,
@@ -93,26 +156,11 @@ export class DashboardService {
       suspendedUsers,
       newUsersThisPeriod,
     ] = await Promise.all([
-      this.userRepository.count({ where: { role: { name: 'STUDENT' } } }),
-      this.userRepository.count({ where: { role: { name: 'EMPLOYER' } } }),
-      this.userRepository.count({
-        where: {
-          role: { name: 'STUDENT' },
-          status: UserStatus.ACTIVE,
-        },
-      }),
-      this.userRepository.count({
-        where: {
-          role: { name: 'EMPLOYER' },
-          isVerified: true,
-        },
-      }),
-      this.userRepository.count({
-        where: {
-          role: { name: 'EMPLOYER' },
-          isVerified: false,
-        },
-      }),
+      this.countUsersByRole('STUDENT'),
+      this.countUsersByRole('EMPLOYER'),
+      this.countUsersByRole('STUDENT', { status: UserStatus.ACTIVE }),
+      this.countUsersByRole('EMPLOYER', { isVerified: true }),
+      this.countUsersByRole('EMPLOYER', { isVerified: false }),
       this.userRepository.count({
         where: { status: UserStatus.SUSPENDED },
       }),
@@ -185,10 +233,10 @@ export class DashboardService {
 
     const statusBreakdown = await this.jobRepository
       .createQueryBuilder('job')
-      .select('job.status.name', 'status')
+      .select('status.name', 'status')
       .addSelect('COUNT(*)', 'count')
       .leftJoin('job.status', 'status')
-      .groupBy('job.status.name')
+      .groupBy('status.name')
       .getRawMany();
 
     return {
@@ -224,7 +272,7 @@ export class DashboardService {
       this.applicationRepository.count(),
       this.applicationRepository
         .createQueryBuilder('app')
-        .where('app.appliedAt >= :startDate', { startDate })
+        .where('app."appliedAt" >= :startDate', { startDate })
         .getCount(),
       this.applicationRepository
         .createQueryBuilder('app')
@@ -251,6 +299,15 @@ export class DashboardService {
       .groupBy('status.name')
       .getRawMany();
 
+    const applications = await this.applicationRepository
+      .createQueryBuilder('app')
+      .select('DATE(app."appliedAt")', 'date')
+      .addSelect('COUNT(*)', 'count')
+      .where('app."appliedAt" >= :startDate', { startDate })
+      .groupBy('DATE(app."appliedAt")')
+      .orderBy('date', 'ASC')
+      .getRawMany<{ date: string; count: string }>();
+
     const conversionRate =
       totalApplications > 0
         ? (acceptedApplications / totalApplications) * 100
@@ -263,6 +320,7 @@ export class DashboardService {
       rejectedApplications,
       pendingApplications,
       statusBreakdown,
+      applications: this.fillCountTrend(applications, startDate),
       conversionRatePercentage: Math.round(conversionRate),
     };
   }
@@ -287,7 +345,7 @@ export class DashboardService {
       .createQueryBuilder('payment')
       .select('SUM(payment.amount)', 'total')
       .where('payment.status = :status', { status: PaymentStatus.PAID })
-      .andWhere('payment.createdAt >= :startDate', { startDate })
+      .andWhere('payment.created_at >= :startDate', { startDate })
       .getRawOne<{ total: string }>();
 
     const revenueAllTime = await this.paymentRepository
@@ -298,12 +356,22 @@ export class DashboardService {
 
     const planBreakdown = await this.paymentRepository
       .createQueryBuilder('payment')
-      .select('payment.planType', 'plan')
+      .select('payment.plan_type', 'plan')
       .addSelect('COUNT(*)', 'count')
       .addSelect('SUM(payment.amount)', 'revenue')
       .where('payment.status = :status', { status: PaymentStatus.PAID })
-      .groupBy('payment.planType')
+      .groupBy('payment.plan_type')
       .getRawMany();
+
+    const payments = await this.paymentRepository
+      .createQueryBuilder('payment')
+      .select('DATE(payment.created_at)', 'date')
+      .addSelect('SUM(payment.amount)', 'amount')
+      .where('payment.status = :status', { status: PaymentStatus.PAID })
+      .andWhere('payment.created_at >= :startDate', { startDate })
+      .groupBy('DATE(payment.created_at)')
+      .orderBy('date', 'ASC')
+      .getRawMany<{ date: string; amount: string }>();
 
     return {
       totalTransactions: total,
@@ -314,7 +382,12 @@ export class DashboardService {
         total > 0 ? Math.round((successful / total) * 100) : 0,
       revenueThisPeriod: parseFloat(revenueResult?.total || '0'),
       totalRevenueAllTime: parseFloat(revenueAllTime?.total || '0'),
-      planBreakdown,
+      payments: this.fillMoneyTrend(payments, startDate),
+      planBreakdown: planBreakdown.map((plan) => ({
+        plan: plan.plan || 'Unassigned',
+        count: parseInt(plan.count || '0', 10),
+        revenue: parseFloat(plan.revenue || '0'),
+      })),
     };
   }
 
@@ -391,44 +464,73 @@ export class DashboardService {
   }
 
   /**
+   * Get latest reports for the dashboard report table
+   */
+  async getRecentReports(limit = 5) {
+    const reports = await this.reportRepository.find({
+      relations: ['user', 'job', 'job.employer'],
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
+
+    return reports.map((report) => ({
+      id: report.id,
+      type: report.type,
+      status: report.status,
+      description: report.description,
+      reportItem:
+        report.job?.employer?.companyName ||
+        report.job?.title ||
+        report.user?.email ||
+        'Unknown',
+      jobId: report.jobId,
+      jobTitle: report.job?.title || null,
+      reporterEmail: report.user?.email || 'Unknown',
+      createdAt: report.createdAt,
+    }));
+  }
+
+  /**
    * Get activity trend over days
    */
   async getActivityTrend(days = 30) {
-    const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
     const userCreations = await this.userRepository
       .createQueryBuilder('u')
-      .select('DATE(u.createdAt)', 'date')
+      .select('DATE(u.created_at)', 'date')
       .addSelect('COUNT(*)', 'count')
-      .where('u.createdAt >= :startDate', { startDate })
-      .groupBy('DATE(u.createdAt)')
+      .where('u.created_at >= :startDate', { startDate })
+      .groupBy('DATE(u.created_at)')
       .orderBy('date', 'ASC')
       .getRawMany();
 
     const jobCreations = await this.jobRepository
       .createQueryBuilder('j')
-      .select('DATE(j.createdAt)', 'date')
+      .select('DATE(j.created_at)', 'date')
       .addSelect('COUNT(*)', 'count')
-      .where('j.createdAt >= :startDate', { startDate })
-      .groupBy('DATE(j.createdAt)')
+      .where('j.created_at >= :startDate', { startDate })
+      .groupBy('DATE(j.created_at)')
       .orderBy('date', 'ASC')
       .getRawMany();
 
     const applicationCreations = await this.applicationRepository
       .createQueryBuilder('a')
-      .select('DATE(a.appliedAt)', 'date')
+      .select('DATE(a."appliedAt")', 'date')
       .addSelect('COUNT(*)', 'count')
-      .where('a.appliedAt >= :startDate', { startDate })
-      .groupBy('DATE(a.appliedAt)')
+      .where('a."appliedAt" >= :startDate', { startDate })
+      .groupBy('DATE(a."appliedAt")')
       .orderBy('date', 'ASC')
       .getRawMany();
 
     return {
-      userCreations,
-      jobCreations,
-      applicationCreations,
+      userCreations: this.fillCountTrend(userCreations, startDate),
+      jobCreations: this.fillCountTrend(jobCreations, startDate),
+      applicationCreations: this.fillCountTrend(
+        applicationCreations,
+        startDate,
+      ),
     };
   }
 
@@ -438,14 +540,14 @@ export class DashboardService {
   async getTopReportedJobs(limit = 10) {
     return this.reportRepository
       .createQueryBuilder('r')
-      .select('r.jobId', 'jobId')
-      .addSelect('COUNT(*)', 'reportCount')
+      .select('r.job_id', 'jobId')
+      .addSelect('COUNT(*)', 'report_count')
       .addSelect('job.title', 'jobTitle')
       .leftJoin('r.job', 'job')
-      .where('r.jobId IS NOT NULL')
-      .groupBy('r.jobId')
+      .where('r.job_id IS NOT NULL')
+      .groupBy('r.job_id')
       .addGroupBy('job.title')
-      .orderBy('reportCount', 'DESC')
+      .orderBy('report_count', 'DESC')
       .limit(limit)
       .getRawMany();
   }
@@ -498,5 +600,65 @@ export class DashboardService {
       .getRawOne<{ total: string }>();
 
     return parseFloat(result?.total || '0');
+  }
+
+  private fillCountTrend(
+    data: Array<{ date: string | Date; count: string | number }>,
+    startDate: Date,
+  ) {
+    const dataMap = new Map(
+      data.map((item) => [
+        this.toDateKey(item.date),
+        Number.parseInt(String(item.count), 10) || 0,
+      ]),
+    );
+
+    return this.fillDateRange(startDate, (date) => ({
+      date,
+      count: dataMap.get(date) || 0,
+    }));
+  }
+
+  private fillMoneyTrend(
+    data: Array<{ date: string | Date; amount: string | number }>,
+    startDate: Date,
+  ) {
+    const dataMap = new Map(
+      data.map((item) => [
+        this.toDateKey(item.date),
+        Number.parseFloat(String(item.amount)) || 0,
+      ]),
+    );
+
+    return this.fillDateRange(startDate, (date) => ({
+      date,
+      amount: dataMap.get(date) || 0,
+    }));
+  }
+
+  private fillDateRange<T>(
+    startDate: Date,
+    createItem: (date: string) => T,
+  ): T[] {
+    const result: T[] = [];
+    const currentDate = new Date(startDate);
+    currentDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    while (currentDate <= today) {
+      result.push(createItem(this.toDateKey(currentDate)));
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return result;
+  }
+
+  private toDateKey(date: string | Date) {
+    if (date instanceof Date) {
+      return date.toISOString().split('T')[0];
+    }
+
+    return String(date).split('T')[0];
   }
 }

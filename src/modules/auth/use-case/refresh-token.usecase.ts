@@ -6,6 +6,7 @@ import {
 import { Response } from 'express';
 import { UserRepository } from '../repositories/user.repository';
 import { TokenService } from '../services/token.service';
+import { UserStatus } from '../../users/user-status.enum';
 
 @Injectable()
 export class RefreshTokenUseCase {
@@ -26,6 +27,12 @@ export class RefreshTokenUseCase {
     const user = await this.userRepo.findByRefreshTokenHash(tokenHash);
     if (!user) {
       throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException(
+        `Your account is ${user.status.toLowerCase().replace('_', ' ')}`,
+      );
     }
 
     // Generate new tokens
