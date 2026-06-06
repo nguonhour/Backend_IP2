@@ -13,7 +13,7 @@ export class Language {
   isActive: boolean;
 
   @Column({
-    name: 'createdAt',
+    name: 'created_at',
     type: 'timestamp',
     default: () => 'CURRENT_TIMESTAMP',
   })

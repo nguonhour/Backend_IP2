@@ -17,10 +17,17 @@ import { Payment } from '../payments/payment.entity';
 import { Report } from '../reports/report.entity';
 import { AuditLog } from '../audit-logs/audit-log.entity';
 import { Notification } from '../notifications/notification.entity';
+import { Skill } from '../../entities/master/skill.entity';
+import { Industry } from '../../entities/master/industry.entity';
+import { Language } from '../../entities/master/language.entity';
+import { University } from '../../entities/master/university.entity';
+import { Major } from '../../entities/master/major.entity';
 import { StudentSkill } from '../student-profiles/student-skill.entity';
 import { SearchHistory } from '../student-profiles/search-history.entity';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { NotificationModule } from '../notifications/notification.module';
+import { MasterDataController } from './master-data.controller';
+import { MasterDataService } from './master-data.service';
 
 @Module({
   imports: [
@@ -34,19 +41,25 @@ import { NotificationModule } from '../notifications/notification.module';
       Report,
       AuditLog,
       Notification,
+      Skill,
+      Industry,
+      Language,
+      University,
+      Major,
       StudentSkill,
       SearchHistory,
     ]),
     AuditLogsModule,
     NotificationModule,
   ],
-  controllers: [AdminController, DashboardController, AnalyticsController],
+  controllers: [AdminController, DashboardController, AnalyticsController, MasterDataController],
   providers: [
     AdminService,
     DashboardService,
     AnalyticsService,
     UserManagementService,
     JobModerationService,
+    MasterDataService,
   ],
 })
 export class AdminModule {}
