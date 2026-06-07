@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsObject, IsOptional, IsString } from 'class-validator';
 import { NotificationType } from '../notification-type.enum';
 
 export class CreateNotificationDto {
@@ -9,9 +9,18 @@ export class CreateNotificationDto {
   @IsNotEmpty()
   message: string;
 
+  @IsOptional()
   @IsString()
-  reference_id: string;
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  reference_id?: string;
 
   @IsString()
   user_id: string;
+
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, any>;
 }
