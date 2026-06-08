@@ -1,4 +1,14 @@
-import { Controller, Post, Body, Get, Param, Patch, Delete, Req, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Param,
+  Patch,
+  Delete,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { NotificationService } from './notifications.service';
 import { CreateNotificationDto } from './dto/CreateNotification.dto';
 import { CreateReplyDto } from './dto/create-reply.dto';
@@ -23,7 +33,11 @@ export class NotificationController {
 
   @Post(':id/reply')
   @UseGuards(JwtAuthGuard)
-  async reply(@Param('id') id: string, @Body() dto: CreateReplyDto, @Req() req: AuthenticatedRequest) {
+  async reply(
+    @Param('id') id: string,
+    @Body() dto: CreateReplyDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
     return await this.service.reply(id, req.user.id, dto);
   }
 
