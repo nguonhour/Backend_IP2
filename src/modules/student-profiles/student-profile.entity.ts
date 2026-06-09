@@ -21,6 +21,7 @@ import { SearchHistory } from './search-history.entity';
 import { Exclude, Expose } from 'class-transformer';
 import { StudentIndustry } from './student-industry.entity';
 import { Report } from '../reports/report.entity';
+import { StudentEducation } from './student-education.entity';
 
 @Entity('student_profiles')
 export class StudentProfile {
@@ -51,16 +52,22 @@ export class StudentProfile {
   @Column({ name: 'last_name', type: 'varchar', nullable: false })
   lastName: string;
 
-  @ManyToOne(() => University, { nullable: true })
-  @JoinColumn({ name: 'university_id' })
-  university: University | null;
+  // @ManyToOne(() => University, { nullable: true })
+  // @JoinColumn({ name: 'university_id' })
+  // university: University | null;
 
   @ManyToOne(() => Major, { nullable: true })
   @JoinColumn({ name: 'major_id' })
   major: Major | null;
 
-  @Column({ name: 'year_of_study', type: 'int', nullable: true })
-  yearOfStudy: number;
+  // @Column({ name: 'year_of_study', type: 'int', nullable: true })
+  // yearOfStudy: number;
+
+  @Column({ name: 'quote', type: 'text', nullable: true })
+  quote: string | null;
+
+  @Column({ name: 'is_available', type: 'boolean', default: true })
+  isAvailable: boolean;
 
   @Column({ name: 'avatar_url', type: 'varchar', nullable: true })
   avatarUrl: string;
@@ -85,6 +92,9 @@ export class StudentProfile {
 
   @OneToMany(() => StudentSkill, (studentSkill) => studentSkill.student)
   studentSkills: StudentSkill[];
+
+  @OneToMany(() => StudentEducation, (education) => education.student)
+  educations: StudentEducation[];
 
   @OneToMany(
     () => StudentLanguage,

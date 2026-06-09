@@ -5,6 +5,7 @@ import { User } from '../../modules/users/user.entity';
 import { UserStatus } from '../../modules/users/user-status.enum';
 import { AuditService } from '../audit-logs/audit.service';
 import { AuditAction } from '../audit-logs/audit-log.entity';
+import { StudentEducation } from '../student-profiles/student-education.entity';
 
 @Injectable()
 export class UserManagementService {
@@ -21,8 +22,9 @@ export class UserManagementService {
     status?: UserStatus,
     search?: string,
     role?: string,
-    universityId?: string,
-    majorId?: string,
+    isAvailable?: boolean,
+    skillIds?: string[],  
+    educationLevel?: string,
     page = 1,
     limit = 10,
   ): Promise<{ data: AdminUserRow[]; total: number }> {
@@ -31,8 +33,8 @@ export class UserManagementService {
 
     query.leftJoinAndSelect('user.role', 'role');
     query.leftJoinAndSelect('user.studentProfile', 'studentProfile');
-    query.leftJoinAndSelect('studentProfile.university', 'university');
-    query.leftJoinAndSelect('studentProfile.major', 'major');
+    query.leftJoinAndSelect('studentProfile.educations', 'educations');
+    // query.leftJoinAndSelect('studentProfile.major', 'major');
     query.leftJoinAndSelect('studentProfile.studentSkills', 'studentSkills');
     query.leftJoinAndSelect('studentSkills.skill', 'skill');
     query.leftJoinAndSelect('user.employerProfile', 'employerProfile');
@@ -48,12 +50,16 @@ export class UserManagementService {
       });
     }
 
-    if (universityId) {
-      query.andWhere('university.id = :universityId', { universityId });
+    if (isAvailable !== undefined) {
+      query.andWhere('studentProfile.isAvailable = :isAvailable', { isAvailable });
     }
 
-    if (majorId) {
-      query.andWhere('major.id = :majorId', { majorId });
+    if (educationLevel) {
+        query.andWhere('educations.educationLevel = :educationLevel', { educationLevel });
+    }
+
+    if (skillIds && skillIds.length > 0) {
+      query.andWhere('studentSkills.skillId IN (:...skillIds)', { skillIds });
     }
 
     if (search) {
@@ -137,7 +143,7 @@ export class UserManagementService {
       relations: [
         'role',
         'studentProfile',
-        'studentProfile.university',
+        'studentProfile.educations',
         'studentProfile.major',
         'studentProfile.studentSkills',
         'studentProfile.studentSkills.skill',
@@ -378,9 +384,18 @@ export class UserManagementService {
             id: student.id,
             firstName: student.firstName,
             lastName: student.lastName,
-            university: student.university
-              ? { id: student.university.id, name: student.university.name }
-              : null,
+            // university: student.university
+            //   ? { id: student.university.id, name: student.university.name }
+            //   : null,
+            educations: student.educations?.map((edu) => ({
+              id: edu.id,
+              institutionName: edu.institutionName,
+              educationLevel: edu.educationLevel,
+              fieldOfStudy: edu.fieldOfStudy,
+              startDate: edu.startDate,
+              endDate: edu.endDate,
+            })) ?? [],
+            isAvailable: student.isAvailable,
             major: student.major
               ? { id: student.major.id, name: student.major.name }
               : null,
@@ -414,7 +429,16 @@ export interface AdminUserRow {
     id: string;
     firstName: string;
     lastName: string;
-    university: { id: string; name: string } | null;
+    // university: { id: string; name: string } | null;
+    educations: Array<{
+      id: string;
+      institutionName: string;
+      educationLevel: string | null;
+      fieldOfStudy: string | null;
+      startDate: Date | null;
+      endDate: Date | null;
+    }>;
+    isAvailable: boolean;
     major: { id: string; name: string } | null;
     skills: string[];
   } | null;

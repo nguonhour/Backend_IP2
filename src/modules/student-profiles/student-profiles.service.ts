@@ -23,6 +23,8 @@ import { AddStudentIndustryDto } from './dto/add-student-industry.dto';
 import { StudentIndustry } from './student-industry.entity';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { SetStudentSkillDto } from './dto/set-student-skill.dto';
+import { StudentEducation } from './student-education.entity';
+import { UpdateStudentEducationDto } from './dto/update-student-education.dto';
 
 type UpdateStudentExperience = {
   title?: unknown;
@@ -45,8 +47,8 @@ export class StudentProfilesService {
     private jobRepository: Repository<Job>,
     @InjectRepository(Resume)
     private resumeRepository: Repository<Resume>,
-    @InjectRepository(University)
-    private universityRepository: Repository<University>,
+    // @InjectRepository(University)
+    // private universityRepository: Repository<University>,
     @InjectRepository(Major)
     private majorRepository: Repository<Major>,
     @InjectRepository(User)
@@ -59,6 +61,8 @@ export class StudentProfilesService {
     private industryRepository: Repository<Industry>,
     @InjectRepository(StudentIndustry)
     private studentIndustryRepository: Repository<StudentIndustry>,
+    @InjectRepository(StudentEducation)
+    private studentEducationRepository: Repository<StudentEducation>,
   ) {}
 
   async saveJob(userId: string, jobId: string): Promise<SavedJob> {
@@ -213,7 +217,7 @@ export class StudentProfilesService {
       where: { id: student.id },
       relations: [
         'user',
-        'university',
+        'educations',
         'major',
         'studentSkills',
         'studentSkills.skill',
@@ -272,7 +276,8 @@ export class StudentProfilesService {
       const normalizedAboutMe = dto.aboutMe.trim();
       student.aboutMe = normalizedAboutMe.length > 0 ? normalizedAboutMe : null;
     }
-    if (dto.yearOfStudy !== undefined) student.yearOfStudy = dto.yearOfStudy;
+    if (dto.quote !== undefined) student.quote = dto.quote;
+    if (dto.isAvailable !== undefined) student.isAvailable = dto.isAvailable;
 
     if (Array.isArray(dto.experiences)) {
       student.experiences = dto.experiences
@@ -312,46 +317,46 @@ export class StudentProfilesService {
         );
     }
 
-    if (dto.universityName !== undefined) {
-      const normalizedUniversityName = dto.universityName.trim();
-      if (!normalizedUniversityName) {
-        student.university = null;
-      } else {
-        student.university = await this.findOrCreateUniversity(
-          normalizedUniversityName,
-        );
-      }
-    }
+    // if (dto.universityName !== undefined) {
+    //   const normalizedUniversityName = dto.universityName.trim();
+    //   if (!normalizedUniversityName) {
+    //     student.university = null;
+    //   } else {
+    //     student.university = await this.findOrCreateUniversity(
+    //       normalizedUniversityName,
+    //     );
+    //   }
+    // }
 
-    if (dto.majorName !== undefined) {
-      const normalizedMajorName = dto.majorName.trim();
-      if (!normalizedMajorName) {
-        student.major = null;
-      } else {
-        student.major = await this.findOrCreateMajor(normalizedMajorName);
-      }
-    }
+    // if (dto.majorName !== undefined) {
+    //   const normalizedMajorName = dto.majorName.trim();
+    //   if (!normalizedMajorName) {
+    //     student.major = null;
+    //   } else {
+    //     student.major = await this.findOrCreateMajor(normalizedMajorName);
+    //   }
+    // }
 
     return this.studentProfileRepository.save(student);
   }
 
-  private async findOrCreateUniversity(name: string): Promise<University> {
-    const existing = await this.universityRepository
-      .createQueryBuilder('university')
-      .where('LOWER(university.name) = LOWER(:name)', { name })
-      .getOne();
+  // private async findOrCreateUniversity(name: string): Promise<University> {
+  //   const existing = await this.universityRepository
+  //     .createQueryBuilder('university')
+  //     .where('LOWER(university.name) = LOWER(:name)', { name })
+  //     .getOne();
 
-    if (existing) {
-      if (!existing.isActive) {
-        existing.isActive = true;
-        return this.universityRepository.save(existing);
-      }
-      return existing;
-    }
+  //   if (existing) {
+  //     if (!existing.isActive) {
+  //       existing.isActive = true;
+  //       return this.universityRepository.save(existing);
+  //     }
+  //     return existing;
+  //   }
 
-    const created = this.universityRepository.create({ name, isActive: true });
-    return this.universityRepository.save(created);
-  }
+  //   const created = this.universityRepository.create({ name, isActive: true });
+  //   return this.universityRepository.save(created);
+  // }
 
   private async findOrCreateMajor(name: string): Promise<Major> {
     const existing = await this.majorRepository
@@ -687,5 +692,67 @@ export class StudentProfilesService {
     }
 
     return { message: 'Languages replaced', added: toInsert.length, removed: toRemove.length };
+  }
+
+  async addEducation(userId: string, dto: any): Promise<StudentEducation> {
+    const student = await this.getStudentProfileByUserId(userId);
+
+    const education = this.studentEducationRepository.create({
+      studentId: student.id,
+      institutionName: dto.institutionName,
+      educationLevel: dto.educationLevel ?? null,
+      fieldOfStudy: dto.fieldOfStudy ?? null,
+      startDate: dto.startDate ?? null,
+      endDate: dto.endDate ?? null,
+    });
+
+    return this.studentEducationRepository.save(education);
+  }
+
+  async updateEducation(
+    userId: string,
+    id: string,
+    dto: UpdateStudentEducationDto,
+  ): Promise<StudentEducation> {
+    const student = await this.getStudentProfileByUserId(userId);
+
+    const education = await this.studentEducationRepository.findOne({
+      where: { id, studentId: student.id },
+    });
+
+    if (!education) {
+      throw new NotFoundException(`Education record with ID ${id} not found`);
+    }
+
+    if (dto.institutionName !== undefined) {
+      education.institutionName = dto.institutionName;
+    }
+    if (dto.educationLevel !== undefined) {
+      education.educationLevel = dto.educationLevel;
+    }
+    if (dto.fieldOfStudy !== undefined) {
+      education.fieldOfStudy = dto.fieldOfStudy;
+    }
+    if (dto.startDate !== undefined) {
+      education.startDate = dto.startDate ? new Date(dto.startDate) : null;
+    }
+    if (dto.endDate !== undefined) {
+      education.endDate = dto.endDate ? new Date(dto.endDate) : null;
+    }
+
+    return this.studentEducationRepository.save(education);
+  }
+
+  async removeEducation(userId: string, id: string): Promise<void> {
+    const student = await this.getStudentProfileByUserId(userId);
+
+    const result = await this.studentEducationRepository.delete({
+      id,
+      studentId: student.id,
+    });
+
+    if (result.affected === 0) {
+      throw new NotFoundException(`Item with ID "${id}" not found`);
+    }
   }
 }

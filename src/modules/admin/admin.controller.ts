@@ -45,17 +45,26 @@ export class AdminController {
     @Query('status') status?: string,
     @Query('search') search?: string,
     @Query('role') role?: string,
-    @Query('universityId') universityId?: string,
-    @Query('majorId') majorId?: string,
+    @Query('isAvailable') isAvailable?: string,
+    @Query('educationLevel') educationLevel?: string,
+    @Query('skillIds') skillIds?: string | string[],
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
+
+// 2. Parse string queries into their expected data types safely
+    const parsedIsAvailable = isAvailable === 'true' ? true : isAvailable === 'false' ? false : undefined;
+    
+    // Normalize skills to an array of strings whether incoming as comma-separated or multiple keys
+    const parsedSkillIds = this.parseArrayQuery(skillIds);
+
     return this.userManagementService.getUsers(
       status as any,
       search,
       role,
-      universityId,
-      majorId,
+      parsedIsAvailable,
+      parsedSkillIds,
+      educationLevel,
       parseInt(page || '1', 10),
       parseInt(limit || '10', 10),
     );
@@ -256,5 +265,12 @@ export class AdminController {
     @Request() req: AuthenticatedRequest,
   ) {
     return this.jobModerationService.rejectJob(jobId, dto.reason, req.user.id);
+  }
+
+  private parseArrayQuery(value: string | string[] | undefined): string[] | undefined {
+    if (!value) return undefined;
+    if (Array.isArray(value)) return value;
+    // Handle comma-separated strings (e.g., ?skillIds=uuid1,uuid2)
+    return value.split(',').map(item => item.trim()).filter(Boolean);
   }
 }
