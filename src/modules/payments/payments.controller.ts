@@ -70,6 +70,11 @@ export class PaymentsController {
     return await this.paymentsService.getPaymentStatus(transactionId);
   }
 
+  @Get('availability')
+  getAvailability() {
+    return this.paymentsService.getAvailability();
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard)
   async createPayment(

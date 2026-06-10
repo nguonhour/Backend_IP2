@@ -7,7 +7,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 
 @Controller('admin/system-settings')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin') // Restricts modifications strictly to administrative personnel accounts
+@Roles('ADMIN')
 export class SystemSettingsController {
   constructor(private readonly settingsService: SystemSettingsService) {}
 

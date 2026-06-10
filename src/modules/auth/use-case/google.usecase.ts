@@ -11,6 +11,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EmployerProfile } from '../../employer-profiles/employer-profile.entity';
 import { UserStatus } from '../../users/user-status.enum';
+import { RegistrationPolicyService } from '../services/registration-policy.service';
 
 @Injectable()
 export class GoogleUseCase {
@@ -19,6 +20,7 @@ export class GoogleUseCase {
   constructor(
     private readonly userRepo: UserRepository,
     private readonly tokenService: TokenService,
+    private readonly registrationPolicy: RegistrationPolicyService,
     @InjectRepository(EmployerProfile)
     private readonly employerProfileRepository?: Repository<EmployerProfile>,
   ) {
@@ -127,6 +129,8 @@ export class GoogleUseCase {
 
     // If user is new but role is provided, create the user
     if (!user && role) {
+      await this.registrationPolicy.assertRegistrationEnabled();
+
       // 2. We use a strict structural cast here instead of 'as any'
       // to completely satisfy ESLint's strict safety rules.
       const repo = this.userRepo as unknown as {

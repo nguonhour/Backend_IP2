@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SystemSetting } from './system-setting.entity';
 import { UpdateSettingDto } from './dto/update-system-settings.dto';
+import { DEFAULT_SYSTEM_SETTINGS } from './system-settings.defaults';
 
 @Injectable()
 export class SystemSettingsService {
@@ -19,7 +20,7 @@ export class SystemSettingsService {
 
   // Returns all application settings grouped neatly by category grouping tags
   async getAllSettings(): Promise<Record<string, any>> {
-    const list = await this.settingsRepository.find();
+    const list = await this.getSettingsWithDefaults();
     return list.reduce(
       (acc, item) => {
         if (!acc[item.group]) acc[item.group] = {};
@@ -32,6 +33,24 @@ export class SystemSettingsService {
       },
       {} as Record<string, any>,
     );
+  }
+
+  private async getSettingsWithDefaults(): Promise<SystemSetting[]> {
+    const existingSettings = await this.settingsRepository.find();
+    const existingKeys = new Set(
+      existingSettings.map((setting) => setting.key),
+    );
+    const missingDefaults = DEFAULT_SYSTEM_SETTINGS.filter(
+      (setting) => !existingKeys.has(setting.key),
+    );
+
+    if (!missingDefaults.length) {
+      return existingSettings;
+    }
+
+    const defaultSettings = this.settingsRepository.create(missingDefaults);
+
+    return [...existingSettings, ...defaultSettings];
   }
 
   // Updates an existing configuration option or creates it securely on the fly (Upsert)
