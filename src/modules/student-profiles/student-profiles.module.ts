@@ -17,6 +17,7 @@ import { Skill } from '../../entities/master/skill.entity';
 import { Language } from '../../entities/master/language.entity';
 import { Industry } from '../../entities/master/industry.entity';
 import { StudentProfilesRepository } from './repository/student-profiles.repository';
+import { StudentEducation } from './student-education.entity';
 
 @Module({
   imports: [
@@ -29,12 +30,13 @@ import { StudentProfilesRepository } from './repository/student-profiles.reposit
       SavedJob,
       Job,
       Resume,
-      University,
+      // University,
       Major,
       User,
       Skill,
       Language,
       Industry,
+      StudentEducation,
     ]),
   ],
   controllers: [StudentProfilesController],

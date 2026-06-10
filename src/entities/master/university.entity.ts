@@ -19,6 +19,6 @@ export class University {
   })
   createdAt: Date;
 
-  @OneToMany(() => StudentProfile, (profile) => profile.university)
-  students: StudentProfile[];
+  // @OneToMany(() => StudentProfile, (profile) => profile.university)
+  // students: StudentProfile[];
 }

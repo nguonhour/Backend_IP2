@@ -9,6 +9,7 @@ import {
   UseGuards,
   UseInterceptors,
   ClassSerializerInterceptor,
+  Patch,
 } from '@nestjs/common';
 import { Body, Put } from '@nestjs/common';
 import { UpdateStudentDto } from './dto/update-student.dto';
@@ -19,6 +20,8 @@ import { AddStudentSkillDto } from './dto/add-student-skill.dto';
 import { AddStudentIndustryDto } from './dto/add-student-industry.dto';
 import { SetStudentSkillDto } from './dto/set-student-skill.dto';
 import { SetStudentLanguageDto } from './dto/set-student-language.dto';
+import { AddStudentEducationDto } from './dto/add-student-education.dto';
+import { UpdateStudentEducationDto } from './dto/update-student-education.dto';
 
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller('students')
@@ -115,5 +118,37 @@ export class StudentProfilesController {
     @Param('jobId', ParseUUIDPipe) jobId: string,
   ) {
     return this.studentProfilesService.removeSavedJob(req.user.id, jobId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('me/educations')
+  addEducation(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: AddStudentEducationDto,
+  ) {
+    return this.studentProfilesService.addEducation(req.user.id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('me/educations/:id')
+  async updateEducation(
+    @Request() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateEducationDto: UpdateStudentEducationDto,
+  ) {
+    return this.studentProfilesService.updateEducation(
+      req.user.id,
+      id,
+      updateEducationDto,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('me/educations/:id')
+  async removeEducation(
+    @Request() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.studentProfilesService.removeEducation(req.user.id, id);
   }
 }

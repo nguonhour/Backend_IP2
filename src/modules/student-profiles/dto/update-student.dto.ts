@@ -1,4 +1,4 @@
-import { IsArray, IsInt, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsBoolean, IsInt, IsOptional, IsString } from 'class-validator';
 
 export class UpdateStudentDto {
   @IsOptional()
@@ -29,15 +29,23 @@ export class UpdateStudentDto {
   @IsArray()
   languages?: Array<{ language: string; level: string }>;
 
-  @IsOptional()
-  @IsInt()
-  yearOfStudy?: number;
+  // @IsOptional()
+  // @IsInt()
+  // yearOfStudy?: number;
 
   @IsOptional()
   @IsString()
-  universityName?: string;
+  quote?: string;
 
+  @IsBoolean()
   @IsOptional()
-  @IsString()
-  majorName?: string;
+  isAvailable?: boolean;
+
+  // @IsOptional()
+  // @IsString()
+  // universityName?: string;
+
+  // @IsOptional()
+  // @IsString()
+  // majorName?: string;
 }
