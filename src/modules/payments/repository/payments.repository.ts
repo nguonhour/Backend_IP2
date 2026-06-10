@@ -15,6 +15,61 @@ export class PaymentsRepository extends BaseRepository<Payment> {
     this.paymentRepository = paymentRepository;
   }
 
+  // const payment = await this.paymentsRepository.findOne({
+  //     where: { transactionId: payload.tran_id },
+  //   });
+  async findOne(options: Parameters<Repository<Payment>['findOne']>[0]) {
+    try {
+      return await this.paymentRepository.findOne(options);
+    } catch (error) {
+      return this.handleError('findOne', error, { options });
+    }
+  }
+
+  async find(options: Parameters<Repository<Payment>['find']>[0]) {
+    try {
+      return await this.paymentRepository.find(options);
+    } catch (error) {
+      return this.handleError('find', error, { options });
+    }
+  }
+
+  async update(id: string | number, data: Partial<Payment>) {
+    try {
+      await this.paymentRepository.update(id, data);
+      return await this.paymentRepository.findOne({ where: { id } as any });
+    } catch (error) {
+      return this.handleError('update', error, { id, data });
+    }
+  }
+
+  async save(entity: Payment) {
+    try {
+      return await this.paymentRepository.save(entity);
+    } catch (error) {
+      return this.handleError('save', error, { entity });
+    }
+  }
+
+  async findAll(relations?: string[]) {
+    try {
+      return await this.paymentRepository.find({ relations });
+    } catch (error) {
+      return this.handleError('findAll', error, { relations });
+    }
+  }
+
+  // async findAll(relations?: string[]) {
+  //   try {
+  //     return await this.paymentRepository.find({
+  //       relations,
+  //       order: { createdAt: 'DESC' },
+  //     });
+  //   } catch (error) {
+  //     return this.handleError('findAll', error);
+  //   }
+  // }
+
   async findByEmployerId(employerId: string, relations?: string[]) {
     try {
       return await this.paymentRepository.find({

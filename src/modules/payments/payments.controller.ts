@@ -14,6 +14,8 @@ import {
   UnauthorizedException,
   UseGuards,
   ForbiddenException,
+  HttpStatus,
+  HttpCode,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Request as ExpressRequest, Response } from 'express';
@@ -55,6 +57,17 @@ export class PaymentsController {
     const fallback = `http://localhost:${this.config.get<string>('PORT') ?? '3211'}`;
     const base = configured.trim() || fallback;
     return base.replace(/\/+$/, '');
+  }
+
+  @Post('aba-pushback')
+  @HttpCode(HttpStatus.OK)
+  async handleAbaPushback(@Body() payload: AbaPushbackPayload) {
+    return await this.paymentsService.processPushback(payload);
+  }
+
+  @Get('status/:transactionId')
+  async checkStatus(@Param('transactionId') transactionId: string) {
+    return await this.paymentsService.getPaymentStatus(transactionId);
   }
 
   @Post()

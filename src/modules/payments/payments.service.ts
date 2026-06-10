@@ -28,6 +28,8 @@ import { logErrorToFile } from '../../common/logger/file-logger';
 import { ConfigService } from '@nestjs/config';
 import { PaymentStatus } from './enum/payment-status.enum';
 import { AbaPushbackPayload } from './interfaces/aba-pushback-payload.interface';
+import { PaymentsRepository } from './repository/payments.repository';
+import { createHmac } from 'crypto';
 
 /**
  * Verify pushback signature using timing-safe comparison.
@@ -91,10 +93,135 @@ export function verifyRawBodySignature(
 export class PaymentsService {
   private payway: PayWay;
   private readonly logger = new Logger(PaymentsService.name);
+
+  constructor(
+    @InjectRepository(Payment) private paymentRepository: Repository<Payment>,
+    @InjectRepository(EmployerProfile)
+    private employerRepository: Repository<EmployerProfile>,
+    private readonly paymentsRepository: PaymentsRepository,
+    private readonly config: ConfigService,
+  ) {
+    this.validateEnv();
+    this.payway = new PayWay({
+      merchantId: this.config.get<string>('ABA_MERCHANT_ID') ?? '',
+      apiKey: this.config.get<string>('ABA_API_KEY') ?? '',
+      environment:
+        this.config.get('NODE_ENV') === 'production' ? 'production' : 'sandbox',
+    });
+  }
+  // constructor(private readonly paymentsRepository: PaymentsRepository) {}
+
+  verifyAbaHash(payload: AbaPushbackPayload): boolean {
+    // Falls back safely to a default string identifier if local environment configurations are missing
+    const apiSecret =
+      process.env.ABA_PAYWAY_API_KEY ?? 'default_api_key_for_verification';
+
+    // CRITICAL: ABA PayWay requires fields to be combined in this exact string sequence order
+    const rawString = `${payload.req_time}${payload.merchant_id}${payload.tran_id}${payload.amount}${payload.status}`;
+
+    // Generate secure SHA256 HMAC digest in Base64 encoding format
+    const computedHash = createHmac('sha256', apiSecret)
+      .update(rawString)
+      .digest('base64');
+
+    const isValid = computedHash === payload.hash;
+
+    if (!isValid) {
+      this.logger.warn(
+        `Hash mismatch detected! Raw Sequence: "${rawString}" | Generated: "${computedHash}" | Received: "${payload.hash}"`,
+      );
+    }
+
+    return isValid;
+  }
+
   private readonly sandboxTransactionOverrides = new Map<
     string,
     PaymentStatus
   >();
+
+  async processPushback(
+    payload: AbaPushbackPayload,
+  ): Promise<{ status: number }> {
+    this.logger.log(
+      `Processing inbound PayWay pushback event tracker for transaction ID: ${payload.tran_id}`,
+    );
+
+    // 1. Authenticate request signature hash
+    if (!this.verifyAbaHash(payload)) {
+      this.logger.error(
+        `Pushback webhook authorization failed for transaction: ${payload.tran_id}`,
+      );
+      throw new BadRequestException(
+        'Invalid cryptographic transaction signature hash',
+      );
+    }
+
+    // 2. Fixed Find Error: Call standard TypeORM via the correctly named `paymentRepository`
+    // and match against the exact database column property `transactionRef`
+    const payment = await this.paymentRepository.findOne({
+      where: { transactionRef: payload.tran_id } as any,
+    });
+
+    if (!payment) {
+      this.logger.error(
+        `Payment record reference lookup not found for transaction reference: ${payload.tran_id}`,
+      );
+      throw new NotFoundException(
+        `Transaction reference link matching ID '${payload.tran_id}' was not found`,
+      );
+    }
+
+    // 3. Checking against the exact status enum property name 'PAID'
+    if (payment.status === PaymentStatus.PAID) {
+      this.logger.log(
+        `Transaction ${payload.tran_id} was already fulfilled. Skipping duplicate task block.`,
+      );
+      return { status: 0 };
+    }
+
+    // 4. Update ledger states using the correct direct repository name
+    if (payload.status === '0') {
+      this.logger.log(
+        `Payment confirmed successful! Settlement authorized for transaction reference: ${payload.tran_id}`,
+      );
+
+      await this.paymentRepository.update(payment.id, {
+        status: PaymentStatus.PAID,
+        updatedAt: new Date(),
+      });
+    } else {
+      this.logger.warn(
+        `Payment transaction failed or was abandoned by customer. Status code: ${payload.status}`,
+      );
+
+      await this.paymentRepository.update(payment.id, {
+        status: PaymentStatus.FAILED,
+        updatedAt: new Date(),
+      });
+    }
+
+    return { status: 0 };
+  }
+
+  /**
+   * Exposes a fast check endpoint for frontend reactive short-polling modules
+   */
+  async getPaymentStatus(
+    transactionId: string,
+  ): Promise<{ status: PaymentStatus }> {
+    // Fixed: Map to custom `findByTransactionRef` exposed cleanly inside your custom repository layer
+    const payment =
+      await this.paymentsRepository.findByTransactionRef(transactionId);
+
+    if (!payment) {
+      throw new NotFoundException(
+        `Requested payment record ID lookup path '${transactionId}' does not exist`,
+      );
+    }
+
+    return { status: payment.status as PaymentStatus };
+  }
 
   private formatAmount(
     amount: number,
@@ -257,39 +384,6 @@ export class PaymentsService {
       },
     );
 
-    // const response = await fetch(
-    //   `${this.getPaywayBaseUrl()}/api/payment-gateway/v1/payments/generate-qr`,
-    //   {
-    //     method: 'POST',
-    //     body: JSON.stringify(
-    //       this.filterPaywayParams({
-    //         hash,
-    //         req_time: reqTime,
-    //         merchant_id: this.config.get<string>('ABA_MERCHANT_ID') ?? '',
-    //         tran_id: options.transactionId,
-    //         amount: amountStr,
-    //         currency,
-    //         payment_option: options.paymentOption,
-    //         lifetime: options.lifetime,
-    //         qr_image_template: options.qrImageTemplate,
-    //         first_name: options.firstName,
-    //         last_name: options.lastName,
-    //         email: options.email,
-    //         phone: options.phone,
-    //         purchase_type: options.purchaseType,
-    //         items,
-    //         callback_url: callbackUrl,
-    //         return_deeplink: returnDeeplink,
-    //         custom_fields: customFields,
-    //         return_params: options.returnParams,
-    //         payout,
-    //       }),
-    //     ),
-    //     headers: { 'Content-Type': 'application/json' },
-    //     signal: AbortSignal.timeout(30000),
-    //   },
-    // );
-
     if (!response.ok) {
       const text = await response.text();
       console.error(`[PaymentsService] API Call Failed`);
@@ -336,22 +430,6 @@ export class PaymentsService {
       paymentOption === 'abapay_khqr_deeplink'
     );
   }
-
-  constructor(
-    @InjectRepository(Payment) private paymentRepository: Repository<Payment>,
-    @InjectRepository(EmployerProfile)
-    private employerRepository: Repository<EmployerProfile>,
-    private readonly config: ConfigService,
-  ) {
-    this.validateEnv();
-    this.payway = new PayWay({
-      merchantId: this.config.get<string>('ABA_MERCHANT_ID') ?? '',
-      apiKey: this.config.get<string>('ABA_API_KEY') ?? '',
-      environment:
-        this.config.get('NODE_ENV') === 'production' ? 'production' : 'sandbox',
-    });
-  }
-
   /**
    * Update payment by transactionRef (transaction id returned by ABA)
    */
@@ -676,14 +754,27 @@ export class PaymentsService {
 
     const query = this.paymentRepository
       .createQueryBuilder('payment')
-      .leftJoin('payment.employer', 'employer')
+      .leftJoinAndSelect('payment.employer', 'employer')
       .where('employer.id = :employerId', { employerId: employer.id });
 
     if (includeLegacyUnowned) {
       query.orWhere('payment.employer_id IS NULL');
     }
 
-    return query.orderBy('payment.createdAt', 'DESC').getMany();
+    const payments = await query.orderBy('payment.createdAt', 'DESC').getMany();
+
+    // Calculate remaining posts for each payment
+    const activeJobCount = await this.paymentRepository.query(
+      `SELECT COUNT(*) as count FROM jobs WHERE employer_id = $1 AND deleted_at IS NULL`,
+      [employer.id],
+    );
+    const usedPosts = activeJobCount[0]?.count || 0;
+
+    return payments.map((payment) => ({
+      ...payment,
+      usedPosts,
+      remainingPosts: Math.max(0, (payment.jobPostLimit || 2) - usedPosts),
+    }));
   }
 
   async updateStatus(userId: string, paymentId: string, dto: UpdatePaymentDto) {
