@@ -235,8 +235,61 @@ export class AnalyticsService {
       .slice(0, limit);
   }
 
+  // async getUtilizationHeatmap(days = 7) {
+  //   const startDate = this.daysAgo(days);
+  //   const [applications, users, jobs, searches] = await Promise.all([
+  //     this.countByHour(
+  //       this.applicationRepository,
+  //       'app',
+  //       'app."appliedAt"',
+  //       startDate,
+  //     ),
+  //     this.countByHour(this.userRepository, 'u', 'u.created_at', startDate),
+  //     this.countByHour(this.jobRepository, 'job', 'job.created_at', startDate),
+  //     this.countByHour(
+  //       this.searchHistoryRepository,
+  //       'search',
+  //       'search."searchedAt"',
+  //       startDate,
+  //     ),
+  //   ]);
+
+  //   const totals = Array.from({ length: 24 }, (_, hour) => ({
+  //     hour,
+  //     count: 0,
+  //   }));
+
+  //   for (const source of [applications, users, jobs, searches]) {
+  //     for (const row of source) {
+  //       const hour = Number.parseInt(row.hour, 10);
+  //       if (Number.isInteger(hour) && hour >= 0 && hour < 24) {
+  //         totals[hour].count += Number.parseInt(row.count || '0', 10);
+  //       }
+  //     }
+  //   }
+
+  //   return totals;
+  // }
+
+  // async getPopularSearchTokens(limit = 10) {
+  //   const rows = await this.searchHistoryRepository
+  //     .createQueryBuilder('search')
+  //     .select('LOWER(TRIM(search."searchQuery"))', 'token')
+  //     .addSelect('COUNT(*)', 'count')
+  //     .where("COALESCE(TRIM(search.\"searchQuery\"), '') <> ''")
+  //     .groupBy('LOWER(TRIM(search."searchQuery"))')
+  //     .orderBy('COUNT(*)', 'DESC')
+  //     .limit(limit)
+  //     .getRawMany<{ token: string; count: string }>();
+
+  //   return rows.map((row) => ({
+  //     token: row.token,
+  //     count: Number.parseInt(row.count || '0', 10),
+  //   }));
+  // }
   async getUtilizationHeatmap(days = 7) {
     const startDate = this.daysAgo(days);
+
     const [applications, users, jobs, searches] = await Promise.all([
       this.countByHour(
         this.applicationRepository,
@@ -244,12 +297,16 @@ export class AnalyticsService {
         'app."appliedAt"',
         startDate,
       ),
+
       this.countByHour(this.userRepository, 'u', 'u.created_at', startDate),
+
       this.countByHour(this.jobRepository, 'job', 'job.created_at', startDate),
+
+      // FIX HERE
       this.countByHour(
         this.searchHistoryRepository,
         'search',
-        'search."searchedAt"',
+        'search.searched_at',
         startDate,
       ),
     ]);
@@ -262,6 +319,7 @@ export class AnalyticsService {
     for (const source of [applications, users, jobs, searches]) {
       for (const row of source) {
         const hour = Number.parseInt(row.hour, 10);
+
         if (Number.isInteger(hour) && hour >= 0 && hour < 24) {
           totals[hour].count += Number.parseInt(row.count || '0', 10);
         }
@@ -270,21 +328,23 @@ export class AnalyticsService {
 
     return totals;
   }
-
   async getPopularSearchTokens(limit = 10) {
     const rows = await this.searchHistoryRepository
       .createQueryBuilder('search')
-      .select('LOWER(TRIM(search."searchQuery"))', 'token')
+      .select(`LOWER(TRIM(search.search_query))`, 'token')
       .addSelect('COUNT(*)', 'count')
-      .where("COALESCE(TRIM(search.\"searchQuery\"), '') <> ''")
-      .groupBy('LOWER(TRIM(search."searchQuery"))')
-      .orderBy('COUNT(*)', 'DESC')
+      .where(
+        `search.search_query IS NOT NULL 
+       AND TRIM(search.search_query) <> ''`,
+      )
+      .groupBy(`LOWER(TRIM(search.search_query))`)
+      .orderBy('count', 'DESC')
       .limit(limit)
-      .getRawMany<{ token: string; count: string }>();
+      .getRawMany();
 
     return rows.map((row) => ({
       token: row.token,
-      count: Number.parseInt(row.count || '0', 10),
+      count: parseInt(row.count || '0', 10),
     }));
   }
 

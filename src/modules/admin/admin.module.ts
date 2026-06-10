@@ -28,6 +28,9 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { NotificationModule } from '../notifications/notification.module';
 import { MasterDataController } from './master-data.controller';
 import { MasterDataService } from './master-data.service';
+import { SystemSetting } from './system-settings/system-setting.entity';
+import { SystemSettingsController } from './system-settings/system-settings.controller';
+import { SystemSettingsService } from './system-settings/system-settings.service';
 
 @Module({
   imports: [
@@ -48,11 +51,18 @@ import { MasterDataService } from './master-data.service';
       Major,
       StudentSkill,
       SearchHistory,
+      SystemSetting,
     ]),
     AuditLogsModule,
     NotificationModule,
   ],
-  controllers: [AdminController, DashboardController, AnalyticsController, MasterDataController],
+  controllers: [
+    AdminController,
+    DashboardController,
+    AnalyticsController,
+    MasterDataController,
+    SystemSettingsController,
+  ],
   providers: [
     AdminService,
     DashboardService,
@@ -60,6 +70,7 @@ import { MasterDataService } from './master-data.service';
     UserManagementService,
     JobModerationService,
     MasterDataService,
+    SystemSettingsService,
   ],
 })
 export class AdminModule {}

@@ -19,6 +19,10 @@ export class SearchHistory {
   @Column()
   searchQuery: string;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({
+    type: 'timestamp',
+    name: 'searched_at',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
   searchedAt: Date;
 }
