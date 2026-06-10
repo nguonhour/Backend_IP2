@@ -2,6 +2,22 @@ import { DataSource } from 'typeorm';
 
 export async function initializeDatabase(dataSource: DataSource) {
   try {
+    await dataSource.query(`
+      CREATE TABLE IF NOT EXISTS system_settings (
+        key varchar(100) PRIMARY KEY,
+        value jsonb NOT NULL,
+        "group" varchar(50) NOT NULL DEFAULT 'general',
+        description varchar,
+        created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('[InitDB] Ensured system_settings table exists');
+  } catch (err) {
+    console.error('[InitDB] Error ensuring system_settings table:', err);
+  }
+
+  try {
     await dataSource.query(
       `ALTER TABLE jobs ADD COLUMN IF NOT EXISTS latitude numeric(10, 7)`,
     );

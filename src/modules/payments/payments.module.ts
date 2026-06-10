@@ -6,11 +6,16 @@ import { Payment } from './payment.entity';
 import { EmployerProfile } from '../employer-profiles/employer-profile.entity';
 import { PaymentsRepository } from './repository/payments.repository';
 import { AuthModule } from '../auth/auth.module';
+import { SystemSetting } from '../admin/system-settings/system-setting.entity';
+import { PaymentPolicyService } from './services/payment-policy.service';
 
 @Module({
-  imports: [AuthModule, TypeOrmModule.forFeature([Payment, EmployerProfile])],
+  imports: [
+    AuthModule,
+    TypeOrmModule.forFeature([Payment, EmployerProfile, SystemSetting]),
+  ],
   controllers: [PaymentsController],
-  providers: [PaymentsService, PaymentsRepository],
+  providers: [PaymentsService, PaymentsRepository, PaymentPolicyService],
   exports: [PaymentsRepository],
 })
 export class PaymentsModule {}

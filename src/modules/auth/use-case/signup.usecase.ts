@@ -13,6 +13,7 @@ import { StudentProfile } from '../../student-profiles/student-profile.entity';
 import { Resume } from '../../resumes/resume.entity';
 import { EmailService } from '../services/email.service';
 import { EmployerProfile } from '../../employer-profiles/employer-profile.entity';
+import { RegistrationPolicyService } from '../services/registration-policy.service';
 
 @Injectable()
 export class SignupUseCase {
@@ -20,6 +21,7 @@ export class SignupUseCase {
     private readonly userRepo: UserRepository,
     private readonly tokenService: TokenService,
     private readonly emailService: EmailService,
+    private readonly registrationPolicy: RegistrationPolicyService,
     @InjectRepository(StudentProfile)
     private readonly studentProfileRepository?: Repository<StudentProfile>,
     @InjectRepository(Resume)
@@ -35,6 +37,8 @@ export class SignupUseCase {
     res: Response,
     additionalData?: Record<string, any>,
   ) {
+    await this.registrationPolicy.assertRegistrationEnabled();
+
     const existing = await this.userRepo.findByEmail(email);
     if (existing.data) {
       throw new ConflictException('Email already exists');
@@ -63,7 +67,10 @@ export class SignupUseCase {
       verificationExpiresAt,
     );
 
-    await this.emailService.sendVerificationEmail(user.email, verificationToken);
+    await this.emailService.sendVerificationEmail(
+      user.email,
+      verificationToken,
+    );
 
     // If student signup includes profile data, create initial StudentProfile and Resume
     if (role === 'student' && additionalData && this.studentProfileRepository) {

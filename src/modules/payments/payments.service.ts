@@ -30,6 +30,7 @@ import { PaymentStatus } from './enum/payment-status.enum';
 import { AbaPushbackPayload } from './interfaces/aba-pushback-payload.interface';
 import { PaymentsRepository } from './repository/payments.repository';
 import { createHmac } from 'crypto';
+import { PaymentPolicyService } from './services/payment-policy.service';
 
 /**
  * Verify pushback signature using timing-safe comparison.
@@ -100,6 +101,7 @@ export class PaymentsService {
     private employerRepository: Repository<EmployerProfile>,
     private readonly paymentsRepository: PaymentsRepository,
     private readonly config: ConfigService,
+    private readonly paymentPolicy: PaymentPolicyService,
   ) {
     this.validateEnv();
     this.payway = new PayWay({
@@ -847,6 +849,8 @@ export class PaymentsService {
       jobPostLimit?: number;
     },
   ) {
+    await this.paymentPolicy.assertAbaPayWayEnabled();
+
     if (!Number.isFinite(amount) || amount <= 0) {
       throw new BadRequestException('Invalid amount');
     }
@@ -992,6 +996,12 @@ export class PaymentsService {
         'Failed to create checkout parameters',
       );
     }
+  }
+
+  async getAvailability() {
+    return {
+      abaPayWayEnabled: await this.paymentPolicy.isAbaPayWayEnabled(),
+    };
   }
 
   /**

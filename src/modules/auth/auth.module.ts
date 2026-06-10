@@ -22,6 +22,8 @@ import { GetMeUseCase } from './use-case/getMe_usecase';
 import { EmailService } from './services/email.service';
 import { VerifyEmailUseCase } from './use-case/verify-email.usecase';
 import { ResendVerificationUseCase } from './use-case/resend-verification.usecase';
+import { SystemSetting } from '../admin/system-settings/system-setting.entity';
+import { RegistrationPolicyService } from './services/registration-policy.service';
 
 @Module({
   imports: [
@@ -31,6 +33,7 @@ import { ResendVerificationUseCase } from './use-case/resend-verification.usecas
       StudentProfile,
       EmployerProfile,
       Resume,
+      SystemSetting,
     ]),
   ],
   controllers: [AuthController],
@@ -51,6 +54,7 @@ import { ResendVerificationUseCase } from './use-case/resend-verification.usecas
     EmailService,
     VerifyEmailUseCase,
     ResendVerificationUseCase,
+    RegistrationPolicyService,
   ],
   exports: [JwtAuthGuard, OptionalJwtAuthGuard, AuthService],
 })
