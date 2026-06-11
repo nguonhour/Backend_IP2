@@ -243,7 +243,8 @@ export class StudentProfilesService {
       where: { id: studentId },
       relations: [
         'user',
-        'university',
+        // 'university',
+        'educations',
         'major',
         'studentSkills',
         'studentIndustries',
