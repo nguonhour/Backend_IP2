@@ -10,6 +10,7 @@ import { User } from '../users/user.entity';
 import { NotificationType } from './notification-type.enum';
 import { NotificationStatus } from './notification-status.enum';
 import { NotificationChannel } from './notification-channel.enum';
+import { NotificationsGateway } from './notifications.gateway';
 
 @Injectable()
 export class NotificationService {
@@ -18,6 +19,7 @@ export class NotificationService {
     private notificationRepository: Repository<Notification>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    private gateway: NotificationsGateway,
   ) {}
 
   /**
@@ -56,6 +58,8 @@ export class NotificationService {
     });
 
     const saved = await this.notificationRepository.save(notification);
+
+    this.gateway.sendNotification(userId, 'notification:new', saved);
 
     // TODO: Queue for email sending if channel is EMAIL or BOTH
     if (
@@ -107,6 +111,10 @@ export class NotificationService {
     );
 
     const saved = await this.notificationRepository.save(notifications);
+
+    for (const n of saved) {
+      this.gateway.sendNotification(n.userId, 'notification:new', n);
+    }
 
     // Queue email notifications if needed
     if (
