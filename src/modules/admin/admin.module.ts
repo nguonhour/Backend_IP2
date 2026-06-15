@@ -31,6 +31,8 @@ import { MasterDataService } from './master-data.service';
 import { SystemSetting } from './system-settings/system-setting.entity';
 import { SystemSettingsController } from './system-settings/system-settings.controller';
 import { SystemSettingsService } from './system-settings/system-settings.service';
+import { ApplicationManagementController } from './application-management.controller';
+import { ApplicationManagementService } from './application-management.service';
 
 @Module({
   imports: [
@@ -62,6 +64,7 @@ import { SystemSettingsService } from './system-settings/system-settings.service
     AnalyticsController,
     MasterDataController,
     SystemSettingsController,
+    ApplicationManagementController,
   ],
   providers: [
     AdminService,
@@ -71,6 +74,7 @@ import { SystemSettingsService } from './system-settings/system-settings.service
     JobModerationService,
     MasterDataService,
     SystemSettingsService,
+    ApplicationManagementService,
   ],
 })
 export class AdminModule {}

@@ -32,7 +32,7 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly userManagementService: UserManagementService,
     private readonly jobModerationService: JobModerationService,
-  ) {}
+  ) { }
 
   @Get('dashboard')
   getDashboard() {
@@ -52,9 +52,9 @@ export class AdminController {
     @Query('limit') limit?: string,
   ) {
 
-// 2. Parse string queries into their expected data types safely
+    // 2. Parse string queries into their expected data types safely
     const parsedIsAvailable = isAvailable === 'true' ? true : isAvailable === 'false' ? false : undefined;
-    
+
     // Normalize skills to an array of strings whether incoming as comma-separated or multiple keys
     const parsedSkillIds = this.parseArrayQuery(skillIds);
 
