@@ -51,7 +51,7 @@ export class NotificationService {
         title: `Sent: ${data.title ?? data.message}`,
         message: data.message,
         referenceId: saved.id,
-        metadata: { ...data.metadata, isSenderCopy: true, replies: [] },
+        metadata: { ...data.metadata, recipientId: data.user_id, isSenderCopy: true, replies: [] },
         user: { id: data.metadata.senderId } as any,
         status: NotificationStatus.READ,
       });
@@ -117,13 +117,30 @@ export class NotificationService {
   }
 
   async reply(id: string, currentUserId: string, dto: CreateReplyDto): Promise<ReplyRecord> {
-    const original = await this.repo.findOne({
+    let original = await this.repo.findOne({
       where: { id },
       relations: ['user'],
     });
 
     if (!original) {
-      throw new NotFoundException('Original notification not found');
+      const child = await this.repo.findOne({
+        where: { referenceId: id },
+      });
+      const recipientId = child?.metadata?.recipientId as string | undefined;
+      if (child && recipientId) {
+        original = this.repo.create({
+          id,
+          userId: recipientId,
+          type: child.type,
+          title: child.title,
+          message: child.message,
+          metadata: { senderId: child.metadata?.senderId, replies: [] },
+          status: NotificationStatus.PENDING,
+        });
+        await this.repo.save(original);
+      } else {
+        throw new NotFoundException('Original notification not found');
+      }
     }
 
     const senderId = original.metadata?.senderId as string | undefined;
