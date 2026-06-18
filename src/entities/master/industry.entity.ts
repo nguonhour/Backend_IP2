@@ -23,6 +23,9 @@ export class Industry {
   @OneToMany(() => EmployerProfile, (profile) => profile.industry)
   employers: EmployerProfile[];
 
-  @OneToMany(() => StudentIndustry, (studentIndustry) => studentIndustry.industry)
+  @OneToMany(
+    () => StudentIndustry,
+    (studentIndustry) => studentIndustry.industry,
+  )
   studentIndustries: StudentIndustry[];
 }

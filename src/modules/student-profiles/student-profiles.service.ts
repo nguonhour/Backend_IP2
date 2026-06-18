@@ -10,7 +10,6 @@ import { In, QueryFailedError, Repository } from 'typeorm';
 import { SavedJob } from '../jobs/saved-job.entity';
 import { Job } from '../jobs/job.entity';
 import { Resume } from '../resumes/resume.entity';
-import { University } from '../../entities/master/university.entity';
 import { Major } from '../../entities/master/major.entity';
 import { User } from '../users/user.entity';
 import { Skill } from '../../entities/master';
@@ -607,7 +606,10 @@ export class StudentProfilesService {
     return { message: 'Industries updated', added: toInsert.length };
   }
 
-  async setLanguages(userId: string, dto: { languages: { language: string; level: string }[] }) {
+  async setLanguages(
+    userId: string,
+    dto: { languages: { language: string; level: string }[] },
+  ) {
     const student = await this.getStudentProfileByUserId(userId);
     if (!student) {
       throw new NotFoundException('Student profile not found');
@@ -620,37 +622,66 @@ export class StudentProfilesService {
       }))
       .filter((l) => l.language.length > 0 || l.level.length > 0);
 
-    const existingStudentLanguages: StudentLanguage[] = await this.studentProfileRepository
-      .createQueryBuilder('sp')
-      .leftJoinAndSelect('sp.studentLanguages', 'studentLanguage')
-      .where('sp.id = :id', { id: student.id })
-      .getOne()
-      .then((s) => (s ? (s.studentLanguages as StudentLanguage[]) : []));
+    const existingStudentLanguages: StudentLanguage[] =
+      await this.studentProfileRepository
+        .createQueryBuilder('sp')
+        .leftJoinAndSelect('sp.studentLanguages', 'studentLanguage')
+        .where('sp.id = :id', { id: student.id })
+        .getOne()
+        .then((s) => (s ? (s.studentLanguages as StudentLanguage[]) : []));
 
     // If no languages provided, delete all existing
     if (normalized.length === 0) {
       // delete via repository
-      await this.studentProfileRepository.manager.delete('student_languages', { student_id: student.id }).catch(() => undefined);
-      return { message: 'Languages replaced', added: 0, removed: existingStudentLanguages.length };
+      await this.studentProfileRepository.manager
+        .delete('student_languages', { student_id: student.id })
+        .catch(() => undefined);
+      return {
+        message: 'Languages replaced',
+        added: 0,
+        removed: existingStudentLanguages.length,
+      };
     }
 
     // Ensure master language records exist (create if missing)
-    const names = Array.from(new Set(normalized.map((n) => n.language.toLowerCase())));
-    const existingMasters = await this.studentProfileRepository.manager.getRepository('m_languages').createQueryBuilder('lang').where('LOWER(lang.name) IN (:...names)', { names }).getMany().catch(() => []);
+    const names = Array.from(
+      new Set(normalized.map((n) => n.language.toLowerCase())),
+    );
+    const existingMasters = await this.studentProfileRepository.manager
+      .getRepository('m_languages')
+      .createQueryBuilder('lang')
+      .where('LOWER(lang.name) IN (:...names)', { names })
+      .getMany()
+      .catch(() => []);
 
-    const existingNameToId = new Map<string, string>(existingMasters.map((m: any) => [m.name.toLowerCase(), m.id] as [string, string]));
+    const existingNameToId = new Map<string, string>(
+      existingMasters.map(
+        (m: any) => [m.name.toLowerCase(), m.id] as [string, string],
+      ),
+    );
 
-    const toCreate = names.filter((n) => !existingNameToId.has(n)).map((n) => ({ name: n, is_active: true }));
+    const toCreate = names
+      .filter((n) => !existingNameToId.has(n))
+      .map((n) => ({ name: n, is_active: true }));
     let created: any[] = [];
     if (toCreate.length > 0) {
       // insert and return created rows
-      const insertRes = await this.studentProfileRepository.manager.getRepository('m_languages').createQueryBuilder().insert().values(toCreate).returning('*').execute().catch(() => null);
+      const insertRes = await this.studentProfileRepository.manager
+        .getRepository('m_languages')
+        .createQueryBuilder()
+        .insert()
+        .values(toCreate)
+        .returning('*')
+        .execute()
+        .catch(() => null);
       if (insertRes && insertRes.raw) created = insertRes.raw;
     }
 
     // refresh master map
     const allMasters = [...existingMasters, ...created];
-    allMasters.forEach((m: any) => existingNameToId.set(m.name.toLowerCase(), m.id));
+    allMasters.forEach((m: any) =>
+      existingNameToId.set(m.name.toLowerCase(), m.id),
+    );
 
     // Build target map of languageId -> level
     const target = new Map<string, string>();
@@ -666,7 +697,11 @@ export class StudentProfilesService {
 
     const toInsert = Array.from(target.entries())
       .filter(([langId]) => !currentLangIds.has(langId))
-      .map(([langId, level]) => ({ student_id: student.id, language_id: langId, level }));
+      .map(([langId, level]) => ({
+        student_id: student.id,
+        language_id: langId,
+        level,
+      }));
 
     const toUpdate = Array.from(target.entries())
       .filter(([langId]) => currentLangIds.has(langId))
@@ -676,23 +711,52 @@ export class StudentProfilesService {
 
     // perform DB ops
     if (toInsert.length > 0) {
-      await this.studentProfileRepository.manager.getRepository('student_languages').createQueryBuilder().insert().values(toInsert).execute().catch(() => undefined);
+      await this.studentProfileRepository.manager
+        .getRepository('student_languages')
+        .createQueryBuilder()
+        .insert()
+        .values(toInsert)
+        .execute()
+        .catch(() => undefined);
     }
 
     if (toUpdate.length > 0) {
       // update levels for existing rows
       for (const [langId, level] of target.entries()) {
         if (currentLangIds.has(langId)) {
-          await this.studentProfileRepository.manager.getRepository('student_languages').createQueryBuilder().update().set({ level }).where('student_id = :studentId AND language_id = :langId', { studentId: student.id, langId }).execute().catch(() => undefined);
+          await this.studentProfileRepository.manager
+            .getRepository('student_languages')
+            .createQueryBuilder()
+            .update()
+            .set({ level })
+            .where('student_id = :studentId AND language_id = :langId', {
+              studentId: student.id,
+              langId,
+            })
+            .execute()
+            .catch(() => undefined);
         }
       }
     }
 
     if (toRemove.length > 0) {
-      await this.studentProfileRepository.manager.getRepository('student_languages').createQueryBuilder().delete().where('student_id = :studentId AND language_id IN (:...ids)', { studentId: student.id, ids: toRemove }).execute().catch(() => undefined);
+      await this.studentProfileRepository.manager
+        .getRepository('student_languages')
+        .createQueryBuilder()
+        .delete()
+        .where('student_id = :studentId AND language_id IN (:...ids)', {
+          studentId: student.id,
+          ids: toRemove,
+        })
+        .execute()
+        .catch(() => undefined);
     }
 
-    return { message: 'Languages replaced', added: toInsert.length, removed: toRemove.length };
+    return {
+      message: 'Languages replaced',
+      added: toInsert.length,
+      removed: toRemove.length,
+    };
   }
 
   async addEducation(userId: string, dto: any): Promise<StudentEducation> {

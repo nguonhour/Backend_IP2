@@ -4,8 +4,6 @@ import {
   CreateDateColumn,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { StudentProfile } from '../student-profiles/student-profile.entity';
-
 @Entity('resumes')
 export class Resume {
   @PrimaryGeneratedColumn('uuid')

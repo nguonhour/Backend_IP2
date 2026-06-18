@@ -5,7 +5,6 @@ import {
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
-  UpdateDateColumn,
   Unique,
 } from 'typeorm';
 import { StudentProfile } from './student-profile.entity';
@@ -26,8 +25,8 @@ export class StudentIndustry {
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
 
-//   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
-//   updatedAt: Date;
+  //   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
+  //   updatedAt: Date;
 
   @ManyToOne(() => StudentProfile, (student) => student.studentIndustries)
   @JoinColumn({ name: 'student_id' })

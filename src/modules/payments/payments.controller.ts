@@ -120,10 +120,6 @@ export class PaymentsController {
     return this.paymentsService.createCheckout(userId, dto.amount, dto);
   }
 
-  /**
-   * Webhook endpoint for ABA PayWay pushback notifications.
-   * Verifies signature and updates payment status in DB.
-   */
   @Post('webhook')
   async handleWebhook(
     @Body() body: AbaPushbackPayload,
@@ -148,10 +144,6 @@ export class PaymentsController {
     return { status: 'success' };
   }
 
-  /**
-   * Public return endpoint used as returnUrl for ABA checkout.
-   * Redirects user to configured continue URL or returns a small HTML page.
-   */
   @Get('return')
   async handleReturn(
     @Query('transactionId') transactionId: string,
@@ -200,10 +192,6 @@ export class PaymentsController {
     return this.paymentsService.markSandboxTransactionPaid(transactionId);
   }
 
-  /**
-   * Test webhook endpoint for sandbox - no signature verification required
-   * Use this to test the webhook flow without needing the correct hash
-   */
   @Post('webhook/test/:transactionId')
   async testWebhook(@Param('transactionId') transactionId: string) {
     return this.paymentsService.handlePushback(
@@ -215,19 +203,6 @@ export class PaymentsController {
       JSON.stringify({ tran_id: transactionId, status: '0' }),
     );
   }
-  // @Post('webhook/test/:transactionId')
-  // async testWebhook(@Param('transactionId') transactionId: string) {
-  //   // Skip signature verification for testing - directly mark as paid
-  //   const payment =
-  //     await this.paymentsService.markSandboxTransactionPaid(transactionId);
-
-  //   return {
-  //     message: 'Test webhook processed successfully',
-  //     transactionId,
-  //     payment,
-  //     note: 'Signature verification skipped for sandbox testing',
-  //   };
-  // }
 
   /**
    * ========== ADMIN ENDPOINTS ==========

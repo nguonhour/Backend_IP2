@@ -1,5 +1,3 @@
-// Backend_IP2/src/modules/student-profiles/student-education.entity.ts
-
 import {
   Entity,
   PrimaryGeneratedColumn,

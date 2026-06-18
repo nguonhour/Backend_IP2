@@ -28,15 +28,9 @@ import { logErrorToFile } from '../../common/logger/file-logger';
 import { ConfigService } from '@nestjs/config';
 import { PaymentStatus } from './enum/payment-status.enum';
 import { AbaPushbackPayload } from './interfaces/aba-pushback-payload.interface';
-import { PaymentsRepository } from './repository/payments.repository';
 import { createHmac } from 'crypto';
 import { PaymentPolicyService } from './services/payment-policy.service';
 
-/**
- * Verify pushback signature using timing-safe comparison.
- * Protects against timing attacks by using crypto.timingSafeEqual.
- * base is constructed as `${reqTime}${merchantId}${tranId}${amount}`
- */
 export function verifyPushbackSignature(
   payload: AbaPushbackPayload,
   providedHash: string,
@@ -55,21 +49,14 @@ export function verifyPushbackSignature(
     .update(base)
     .digest('hex');
 
-  // Convert to Buffer for timing-safe comparison
   const expectBuf = Buffer.from(hmacHex.toLowerCase());
   const actualBuf = Buffer.from(String(providedHash ?? '').toLowerCase());
 
-  // Return false immediately if lengths don't match (safe operation)
   if (expectBuf.length !== actualBuf.length) return false;
 
-  // Use timing-safe comparison to prevent timing attacks
   return crypto.timingSafeEqual(expectBuf, actualBuf);
 }
 
-/**
- * Verify raw webhook body signature for providers that sign the raw payload.
- * Tries HMAC-SHA256 in hex and base64 forms.
- */
 export function verifyRawBodySignature(
   rawBody: string,
   providedSignature: string,
@@ -99,7 +86,6 @@ export class PaymentsService {
     @InjectRepository(Payment) private paymentRepository: Repository<Payment>,
     @InjectRepository(EmployerProfile)
     private employerRepository: Repository<EmployerProfile>,
-    private readonly paymentsRepository: PaymentsRepository,
     private readonly config: ConfigService,
     private readonly paymentPolicy: PaymentPolicyService,
   ) {
@@ -111,17 +97,13 @@ export class PaymentsService {
         this.config.get('NODE_ENV') === 'production' ? 'production' : 'sandbox',
     });
   }
-  // constructor(private readonly paymentsRepository: PaymentsRepository) {}
 
   verifyAbaHash(payload: AbaPushbackPayload): boolean {
-    // Falls back safely to a default string identifier if local environment configurations are missing
     const apiSecret =
       process.env.ABA_PAYWAY_API_KEY ?? 'default_api_key_for_verification';
 
-    // CRITICAL: ABA PayWay requires fields to be combined in this exact string sequence order
     const rawString = `${payload.req_time}${payload.merchant_id}${payload.tran_id}${payload.amount}${payload.status}`;
 
-    // Generate secure SHA256 HMAC digest in Base64 encoding format
     const computedHash = createHmac('sha256', apiSecret)
       .update(rawString)
       .digest('base64');
@@ -135,6 +117,35 @@ export class PaymentsService {
     }
 
     return isValid;
+  }
+
+  private validateEnv() {
+    const missing: string[] = [];
+    const merchantId = this.config.get<string>('ABA_MERCHANT_ID');
+    const apiKey = this.config.get<string>('ABA_API_KEY');
+
+    if (!merchantId) missing.push('ABA_MERCHANT_ID');
+    if (!apiKey) missing.push('ABA_API_KEY');
+    if (missing.length) {
+      const msg = `Missing required ABA Payway env: ${missing.join(', ')}`;
+      this.logger.error(msg);
+      try {
+        logErrorToFile(new Error(msg), {
+          service: 'PaymentsService',
+          context: 'validateEnv',
+        });
+      } catch (error) {
+        console.error('Failed to log missing env error:', error);
+      }
+      throw new Error(msg);
+    }
+
+    if (apiKey?.startsWith('http://') || apiKey?.startsWith('https://')) {
+      const msg =
+        'Invalid ABA_API_KEY: expected secret key from ABA merchant portal, but received a URL';
+      this.logger.error(msg);
+      throw new Error(msg);
+    }
   }
 
   private readonly sandboxTransactionOverrides = new Map<
@@ -162,6 +173,7 @@ export class PaymentsService {
     // 2. Fixed Find Error: Call standard TypeORM via the correctly named `paymentRepository`
     // and match against the exact database column property `transactionRef`
     const payment = await this.paymentRepository.findOne({
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       where: { transactionRef: payload.tran_id } as any,
     });
 
@@ -206,15 +218,12 @@ export class PaymentsService {
     return { status: 0 };
   }
 
-  /**
-   * Exposes a fast check endpoint for frontend reactive short-polling modules
-   */
   async getPaymentStatus(
     transactionId: string,
   ): Promise<{ status: PaymentStatus }> {
-    // Fixed: Map to custom `findByTransactionRef` exposed cleanly inside your custom repository layer
-    const payment =
-      await this.paymentsRepository.findByTransactionRef(transactionId);
+    const payment = await this.paymentRepository.findOne({
+      where: { transactionRef: transactionId } as any,
+    });
 
     if (!payment) {
       throw new NotFoundException(
@@ -222,7 +231,7 @@ export class PaymentsService {
       );
     }
 
-    return { status: payment.status as PaymentStatus };
+    return { status: payment.status };
   }
 
   private formatAmount(
@@ -256,11 +265,6 @@ export class PaymentsService {
     return Buffer.from(value).toString('base64');
   }
 
-  /**
-   * Create ABA PayWay hash with specified algorithm and encoding.
-   * - SHA512 + base64: For hosted checkout (SDK handles internally)
-   * - SHA256 + hex: For QR code generation API
-   */
   private createPaywayHash(
     values: string[],
     algorithm: 'sha256' | 'sha512' = 'sha512',
@@ -432,9 +436,7 @@ export class PaymentsService {
       paymentOption === 'abapay_khqr_deeplink'
     );
   }
-  /**
-   * Update payment by transactionRef (transaction id returned by ABA)
-   */
+
   async updateStatusByTransactionRef(
     transactionRef: string,
     status: PaymentStatus,
@@ -450,7 +452,6 @@ export class PaymentsService {
     }
     payment.status = status;
 
-    // If payment is now PAID and we have employer info, update their plan
     if (
       status === PaymentStatus.PAID &&
       payment.employer &&
@@ -495,10 +496,6 @@ export class PaymentsService {
     return this.paymentRepository.save(payment);
   }
 
-  /**
-   * Handle pushback (webhook) from ABA PayWay.
-   * Verifies signature/hash using ABA API key and updates payment status in DB.
-   */
   async handlePushback(
     payload: AbaPushbackPayload,
     signatureHeader?: string,
@@ -597,35 +594,6 @@ export class PaymentsService {
     }
   }
 
-  private validateEnv() {
-    const missing: string[] = [];
-    const merchantId = this.config.get<string>('ABA_MERCHANT_ID');
-    const apiKey = this.config.get<string>('ABA_API_KEY');
-
-    if (!merchantId) missing.push('ABA_MERCHANT_ID');
-    if (!apiKey) missing.push('ABA_API_KEY');
-    if (missing.length) {
-      const msg = `Missing required ABA Payway env: ${missing.join(', ')}`;
-      this.logger.error(msg);
-      try {
-        logErrorToFile(new Error(msg), {
-          service: 'PaymentsService',
-          context: 'validateEnv',
-        });
-      } catch (error) {
-        console.error('Failed to log missing env error:', error);
-      }
-      throw new Error(msg);
-    }
-
-    if (apiKey?.startsWith('http://') || apiKey?.startsWith('https://')) {
-      const msg =
-        'Invalid ABA_API_KEY: expected secret key from ABA merchant portal, but received a URL';
-      this.logger.error(msg);
-      throw new Error(msg);
-    }
-  }
-
   private async getEmployer(userId: string) {
     const employer = await this.employerRepository.findOne({
       where: { user: { id: userId } },
@@ -719,115 +687,6 @@ export class PaymentsService {
     return this.paymentRepository.save(payment);
   }
 
-  async createPaymentAdmin(dto: CreatePaymentDto) {
-    if (!dto.employerId) {
-      throw new BadRequestException('Employer ID is required');
-    }
-
-    const employer = await this.employerRepository.findOne({
-      where: { id: dto.employerId },
-    });
-
-    if (!employer) {
-      throw new NotFoundException('Employer profile not found');
-    }
-
-    const payment = this.paymentRepository.create({
-      employer: employer ? { id: employer.id } : undefined,
-      amount: dto.amount,
-      currency: dto.currency,
-      status: dto.status ?? PaymentStatus.PENDING,
-      paymentMethod: dto.paymentMethod,
-      transactionRef: dto.transactionRef,
-      planName: dto.planName,
-      planType: dto.planType,
-      jobPostLimit: dto.jobPostLimit,
-      expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
-    });
-
-    return this.paymentRepository.save(payment);
-  }
-
-  async getMyPayments(userId: string) {
-    const employer = await this.getEmployer(userId);
-    const includeLegacyUnowned =
-      this.config.get<string>('NODE_ENV') !== 'production' ||
-      this.config.get<string>('PAYMENTS_INCLUDE_LEGACY_UNOWNED') === 'true';
-
-    const query = this.paymentRepository
-      .createQueryBuilder('payment')
-      .leftJoinAndSelect('payment.employer', 'employer')
-      .where('employer.id = :employerId', { employerId: employer.id });
-
-    if (includeLegacyUnowned) {
-      query.orWhere('payment.employer_id IS NULL');
-    }
-
-    const payments = await query.orderBy('payment.createdAt', 'DESC').getMany();
-
-    // Calculate remaining posts for each payment
-    const activeJobCount = await this.paymentRepository.query(
-      `SELECT COUNT(*) as count FROM jobs WHERE employer_id = $1 AND deleted_at IS NULL`,
-      [employer.id],
-    );
-    const usedPosts = activeJobCount[0]?.count || 0;
-
-    return payments.map((payment) => ({
-      ...payment,
-      usedPosts,
-      remainingPosts: Math.max(0, (payment.jobPostLimit || 2) - usedPosts),
-    }));
-  }
-
-  async updateStatus(userId: string, paymentId: string, dto: UpdatePaymentDto) {
-    const employer = await this.getEmployer(userId);
-    const payment = await this.paymentRepository.findOne({
-      where: { id: paymentId, employer: { id: employer.id } },
-    });
-
-    if (!payment) throw new NotFoundException('Payment not found');
-
-    payment.status = dto.status;
-    return this.paymentRepository.save(payment);
-  }
-
-  async deletePayment(userId: string, paymentId: string) {
-    const employer = await this.getEmployer(userId);
-    const payment = await this.paymentRepository.findOne({
-      where: { id: paymentId, employer: { id: employer.id } },
-    });
-
-    if (!payment) throw new NotFoundException('Payment not found');
-
-    await this.paymentRepository.remove(payment);
-    return { message: 'Payment deleted successfully' };
-  }
-
-  private generateTransactionId() {
-    return crypto.randomBytes(10).toString('hex');
-  }
-
-  private getFrontendBaseUrl() {
-    const configured = this.config.get<string>('FRONTEND_URL') ?? '';
-    const fallback = 'http://localhost:5173';
-    const base = configured.trim() || fallback;
-    return base.replace(/\/+$/, '');
-  }
-
-  private getBackendBaseUrl() {
-    const configured = this.config.get<string>('BACKEND_URL') ?? '';
-    const fallback = 'http://localhost:3211';
-    const base = configured.trim() || fallback;
-    return base.replace(/\/+$/, '');
-  }
-
-  /**
-   * Create checkout parameters for ABA Payway payment.
-   * This generates form parameters to submit via ABA's frontend SDK.
-   * Returns: { transactionId, checkoutParams }
-   *
-   * Usage on frontend: Send checkoutParams to ABA's hidden form and call AbaPayway.checkout()
-   */
   async createCheckout(
     userId: string | undefined,
     amount: number,
@@ -887,7 +746,6 @@ export class PaymentsService {
         expiresAt,
       });
 
-      // The aba-payway SDK base64-encodes items internally. Keep these raw here.
       const itemsArray: ItemEntry[] = [
         {
           name: opts?.items ?? 'Student Portal Payment',
@@ -897,7 +755,6 @@ export class PaymentsService {
       ];
       const qrItems = JSON.stringify(itemsArray);
 
-      // Default frontend result URLs so ABA redirects users back to the Vue app
       const resultPageUrl = `${frontendBaseUrl}/payment/result?transactionId=${transactionId}`;
       const cancelPageUrl = `${frontendBaseUrl}/payment/result?transactionId=${transactionId}&status=CANCELLED`;
 
@@ -998,15 +855,117 @@ export class PaymentsService {
     }
   }
 
+  async createPaymentAdmin(dto: CreatePaymentDto) {
+    if (!dto.employerId) {
+      throw new BadRequestException('Employer ID is required');
+    }
+
+    const employer = await this.employerRepository.findOne({
+      where: { id: dto.employerId },
+    });
+
+    if (!employer) {
+      throw new NotFoundException('Employer profile not found');
+    }
+
+    const payment = this.paymentRepository.create({
+      employer: employer ? { id: employer.id } : undefined,
+      amount: dto.amount,
+      currency: dto.currency,
+      status: dto.status ?? PaymentStatus.PENDING,
+      paymentMethod: dto.paymentMethod,
+      transactionRef: dto.transactionRef,
+      planName: dto.planName,
+      planType: dto.planType,
+      jobPostLimit: dto.jobPostLimit,
+      expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
+    });
+
+    return this.paymentRepository.save(payment);
+  }
+
+  async getMyPayments(userId: string) {
+    const employer = await this.getEmployer(userId);
+    const includeLegacyUnowned =
+      this.config.get<string>('NODE_ENV') !== 'production' ||
+      this.config.get<string>('PAYMENTS_INCLUDE_LEGACY_UNOWNED') === 'true';
+
+    const query = this.paymentRepository
+      .createQueryBuilder('payment')
+      .leftJoinAndSelect('payment.employer', 'employer')
+      .where('employer.id = :employerId', { employerId: employer.id });
+
+    if (includeLegacyUnowned) {
+      query.orWhere('payment.employer_id IS NULL');
+    }
+
+    const payments = await query.orderBy('payment.createdAt', 'DESC').getMany();
+
+    // Calculate remaining posts for each payment
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const activeJobCount = await this.paymentRepository.query(
+      `SELECT COUNT(*) as count FROM jobs WHERE employer_id = $1 AND deleted_at IS NULL`,
+      [employer.id],
+    );
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    const usedPosts = activeJobCount[0]?.count || 0;
+
+    return payments.map((payment) => ({
+      ...payment,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      usedPosts,
+      remainingPosts: Math.max(0, (payment.jobPostLimit || 2) - usedPosts),
+    }));
+  }
+
+  async updateStatus(userId: string, paymentId: string, dto: UpdatePaymentDto) {
+    const employer = await this.getEmployer(userId);
+    const payment = await this.paymentRepository.findOne({
+      where: { id: paymentId, employer: { id: employer.id } },
+    });
+
+    if (!payment) throw new NotFoundException('Payment not found');
+
+    payment.status = dto.status;
+    return this.paymentRepository.save(payment);
+  }
+
+  async deletePayment(userId: string, paymentId: string) {
+    const employer = await this.getEmployer(userId);
+    const payment = await this.paymentRepository.findOne({
+      where: { id: paymentId, employer: { id: employer.id } },
+    });
+
+    if (!payment) throw new NotFoundException('Payment not found');
+
+    await this.paymentRepository.remove(payment);
+    return { message: 'Payment deleted successfully' };
+  }
+
+  private generateTransactionId() {
+    return crypto.randomBytes(10).toString('hex');
+  }
+
+  private getFrontendBaseUrl() {
+    const configured = this.config.get<string>('FRONTEND_URL') ?? '';
+    const fallback = 'http://localhost:5173';
+    const base = configured.trim() || fallback;
+    return base.replace(/\/+$/, '');
+  }
+
+  private getBackendBaseUrl() {
+    const configured = this.config.get<string>('BACKEND_URL') ?? '';
+    const fallback = 'http://localhost:3211';
+    const base = configured.trim() || fallback;
+    return base.replace(/\/+$/, '');
+  }
+
   async getAvailability() {
     return {
       abaPayWayEnabled: await this.paymentPolicy.isAbaPayWayEnabled(),
     };
   }
 
-  /**
-   * Check transaction status with ABA Payway API.
-   */
   async checkTransactionStatus(transactionId: string) {
     try {
       const sandboxStatus = this.sandboxTransactionOverrides.get(transactionId);

@@ -10,13 +10,11 @@ import { StudentIndustry } from './student-industry.entity';
 import { SavedJob } from '../jobs/saved-job.entity';
 import { Job } from '../jobs/job.entity';
 import { Resume } from '../resumes/resume.entity';
-import { University } from '../../entities/master/university.entity';
 import { Major } from '../../entities/master/major.entity';
 import { User } from '../users/user.entity';
 import { Skill } from '../../entities/master/skill.entity';
 import { Language } from '../../entities/master/language.entity';
 import { Industry } from '../../entities/master/industry.entity';
-import { StudentProfilesRepository } from './repository/student-profiles.repository';
 import { StudentEducation } from './student-education.entity';
 
 @Module({
@@ -40,7 +38,7 @@ import { StudentEducation } from './student-education.entity';
     ]),
   ],
   controllers: [StudentProfilesController],
-  providers: [StudentProfilesService, StudentProfilesRepository],
-  exports: [StudentProfilesRepository],
+  providers: [StudentProfilesService],
+  exports: [StudentProfilesService],
 })
 export class StudentProfilesModule {}
